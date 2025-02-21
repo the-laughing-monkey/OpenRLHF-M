@@ -1,3 +1,46 @@
+import fitz
+def get_bbox(input_pdf):
+    # 打开PDF文件
+    pdf_document = fitz.open(input_pdf)
+    
+    
+    # 遍历每一页
+    page = pdf_document.load_page(0)
+    
+    # 获取页面的边界框
+    rect = page.rect
+    
+    # 获取页面的所有图像和文本块
+    blocks = page.get_text("blocks")
+    images = page.get_image_info()
+    # 找到所有内容的边界
+    min_x = rect.width
+    min_y = rect.height
+    max_x = 0
+    max_y = 0
+    
+    # 遍历文本块
+    for block in blocks:
+        x0, y0, x1, y1, _, _, _ = block
+        min_x = min(min_x, x0)
+        min_y = min(min_y, y0)
+        max_x = max(max_x, x1)
+        max_y = max(max_y, y1)
+    
+    # 遍历图像
+    for image in images:
+        x0, y0, x1, y1 = image["bbox"]
+        min_x = min(min_x, x0)
+        min_y = min(min_y, y0)
+        max_x = max(max_x, x1)
+        max_y = max(max_y, y1)
+    pdf_document.close()
+    #归一化
+    min_x = min_x / rect.width
+    min_y = min_y / rect.height
+    max_x = max_x / rect.width
+    max_y = max_y / rect.height
+    return min_x, min_y, max_x, max_y
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -6,6 +49,7 @@ from pdf2image import convert_from_path
 from PIL import ImageOps
 import json
 from tqdm import tqdm
+import random
 SYSTEM_PROMPT = (
     "You are a helpful assistant good at solving math problems with step-by-step reasoning. You should "
     "first thinks about the reasoning process in the mind and then provides the user with the answer. Your answer must be in latex format and wrapped in $...$."
@@ -35,7 +79,13 @@ class TypstToImageConverter:
         # 尺寸参数生成逻辑
         page_param = f"width:{self.page_size['width']},height:{self.page_size['height']}, margin:(x:{self.margins['x']},y:{self.margins['y']})"
 
-        return f'#set page({page_param})\n#set text(size: {self.font_size})\n#let content = "{content}"\n#content'
+        return rf"""
+#import "@preview/mitex:0.2.5": *
+#set page({page_param})
+#set text(size: {self.font_size})
+
+#mitext(`{content}`)
+"""
 
     def process_question(self, content, question_id):
         with TemporaryDirectory() as tmpdir:
@@ -94,50 +144,92 @@ class TypstToImageConverter:
 
             return True
 
-if __name__ == "__main__":
-    with open("data/mathlv345.jsonl",'r') as f:
-        data = []
-        for d in f.readlines():
-            data.append(json.loads(d))
-    output_dir = "/root/projects/lmm-r1/data/mathlv345_img/"
-    converter = TypstToImageConverter(
-        output_dir=output_dir,
-        font_size="16pt",
-        page_size={"width":"15cm","height":"10cm"},
-        dpi=110,
-    )
-    fail_questions = []
-    final_data = []
-    for idx, d in tqdm(enumerate(data)):
-        answer = d['answer']
-        if answer[0] != "$":
-            answer = "$" + answer + "$"
-        question = d['problem']
-        question = question.replace("\\\\","\\")
-        question = question.replace('"','\\"')
-
-
+def process_single_question(args):
+    idx, question, answer, output_dir, converter = args
+    try:
         success = converter.process_question(question, idx)
         if success:
+            content = [
+                {
+                    "type": "text",
+                    "text": "Answer the question in the image."
+                },
+                {
+                    "type": "image",
+                    "image": "file://" + output_dir + f"q{idx}.jpg"
+                }
+            ]
+            if random.random() > 0.5:
+                content = content[::-1]
             message = [
                 {
-                    "role":"system",
+                    "role": "system",
                     "content": SYSTEM_PROMPT
                 },
                 {
-                    "role":"user",
-                    "content": [
-                        {
-                            "type":"text",
-                            "text":"Answer the question in the image."
-                        },
-                        {
-                            "type":"image",
-                            "image":"file://"+output_dir+f"q{idx}.jpg"
-                        }
-                    ]
+                    "role": "user",
+                    "content": content
                 }
             ]
-            final_data.append({"message":json.dumps(message,ensure_ascii=False),"answer":answer})
+            return {
+                "success": True,
+                "data": {
+                    "message": json.dumps(message, ensure_ascii=False),
+                    "question": question,
+                    "answer": answer
+                }
+            }
+        return {"success": False, "data": question}
+    except Exception as e:
+        print(f"Error processing question {idx}: {str(e)}")
+        return {"success": False, "data": question}
+
+if __name__ == "__main__":
+    import multiprocessing as mp
+    
+    with open("data/deepscaler.json", 'r') as f:
+        data = json.load(f)
+    
+    output_dir = "/root/projects/lmm-r1/data/deepscaler_img/"
+    converter = TypstToImageConverter(
+        output_dir=output_dir,
+        font_size="16pt",
+        page_size={"width": "15cm", "height": "10cm"},
+        dpi=120,
+    )
+    
+    # 准备参数列表
+    process_args = []
+    for idx, d in enumerate(data):
+        answer = d['answer']
+        if len(answer) == 0:
+            continue
+        if answer[0] != "$":
+            answer = "$" + answer + "$"
+        question = d['problem']
+        question = question.replace("\\\\", "\\")
+        process_args.append((idx, question, answer, output_dir, converter))
+    
+    # 使用进程池并行处理
+    num_processes = 16
+    with mp.Pool(num_processes) as pool:
+        results = list(tqdm(
+            pool.imap(process_single_question, process_args),
+            total=len(process_args),
+            desc="Processing questions"
+        ))
+    
+    # 处理结果
+    final_data = []
+    fail_questions = []
+    for result in results:
+        if result["success"]:
+            final_data.append(result["data"])
         else:
-            fail_questions.append(question)
+            fail_questions.append(result["data"])
+
+    print(f"Successfully processed: {len(final_data)}")
+    print(f"Failed questions: {len(fail_questions)}")
+    with open("data/deepscaler_img.jsonl",'w') as f:
+        for d in final_data:
+            f.write(json.dumps(d,ensure_ascii=False)+"\n")
