@@ -195,8 +195,14 @@ class Actor(nn.Module):
         visual_inputs: Optional[dict] = None,
     ) -> torch.Tensor:
         """Returns action log probs"""
+        assert len(visual_inputs) > 0
         if visual_inputs is None:
             visual_inputs = {}
+        '''
+        for k,v in visual_inputs.items():
+            if v.dtype == torch.float32:
+                visual_inputs[k] = v.to(self.model.get_input_embeddings().weight.dtype)
+        '''
         if not self.packing_samples:
             # https://github.com/OpenRLHF/OpenRLHF/issues/217
             position_ids = attention_mask.long().cumsum(-1) - 1
@@ -211,7 +217,6 @@ class Actor(nn.Module):
                 position_ids = reset_position_ids(attention_mask)
             # explicitly ignore attention_mask for packing_samples
             attention_mask = None
-
         output = self.model(sequences, attention_mask=attention_mask, position_ids=position_ids, **visual_inputs)
         # https://github.com/OpenRLHF/OpenRLHF/pull/634
         output["logits"] = output["logits"].to(torch.float32)
