@@ -322,17 +322,17 @@ class NaiveExperienceMaker(ABC):
         visual_inputs = samples.visual_inputs
 
         # log probs
-        action_log_probs = self.actor(sequences, num_actions, attention_mask, visual_inputs)
+        action_log_probs = self.actor(sequences, num_actions, attention_mask, visual_inputs=visual_inputs)
 
         # init log probs
         if self.initial_model is not None:
-            base_action_log_probs = self.initial_model(sequences, num_actions, attention_mask, visual_inputs)
+            base_action_log_probs = self.initial_model(sequences, num_actions, attention_mask, visual_inputs=visual_inputs)
         else:
             base_action_log_probs = None
 
         # values
         if self.critic is not None:
-            value = self.critic(sequences, num_actions, attention_mask, visual_inputs)
+            value = self.critic(sequences, num_actions, attention_mask, visual_inputs=visual_inputs)
         else:
             value = None
 
@@ -376,7 +376,7 @@ class NaiveExperienceMaker(ABC):
         self.actor.train()
         if self.critic is not None:
             self.critic.train()
-
+        assert len(visual_inputs) > 0
         return Experience(
             sequences,
             action_log_probs,
@@ -546,6 +546,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 # send experience to critic
                 experience_cpu = deepcopy(experience)
                 experience_cpu.to_device("cpu")
+                assert len(experience_cpu.visual_inputs) > 0
                 self._ref = self.critic.append.remote(experience_cpu)
         return experiences
 
@@ -721,7 +722,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         if self.strategy.args.perf:
             self.perf_stats["actor_value_rm_time"] += actor_value_rm_time
             self.perf_stats["wait_time"] += wait_time
-
+        assert len(visual_inputs) > 0
         experience = Experience(
             sequences,
             action_log_probs,

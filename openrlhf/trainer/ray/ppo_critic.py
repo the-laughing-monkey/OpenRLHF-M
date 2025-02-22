@@ -87,17 +87,6 @@ class CriticModelRayActor(BasePPORole):
         strategy.print("reward normalization status: {}".format(strategy.args.normalize_reward))
         strategy.print("mean: {}, std {}".format(critic.mean, critic.std))
 
-        # configure tokenizer
-        if strategy.args.save_value_network:
-            if args.train_vlm:
-                self.processor = get_vl_processor(
-                    pretrain, actor.model, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
-                )
-            else:
-                self.tokenizer = get_tokenizer(
-                    pretrain, critic, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
-                )
-
         # configure optimizer
         critic_optim = strategy.create_optimizer(
             critic, lr=args.critic_learning_rate, betas=args.adam_betas, weight_decay=args.l2
@@ -132,6 +121,18 @@ class CriticModelRayActor(BasePPORole):
         # configure Trainer
         # only use wandb at actor model
         strategy.args.use_wandb = False
+        # configure tokenizer
+        args = strategy.args
+        if args.train_vlm:
+            self.processor = get_vl_processor(
+                pretrain, self.critic, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
+            )
+            self.tokenizer = self.processor.tokenizer
+        else:
+            self.processor = None
+            self.tokenizer = get_tokenizer(
+                pretrain, self.critic, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
+            )
         self.trainer = CriticPPOTrainer(
             strategy,
             actor=None,
@@ -150,6 +151,8 @@ class CriticModelRayActor(BasePPORole):
             prompt_max_len=args.prompt_max_len,
             value_clip=args.value_clip,
             eps_clip=args.eps_clip,
+            processor=self.processor,
+            tokenizer=self.tokenizer
         )
 
     def forward(
@@ -175,6 +178,7 @@ class CriticModelRayActor(BasePPORole):
 
     def append(self, experience):
         """Append experience to replay buffer."""
+        assert len(experience.visual_inputs) > 0
         self.trainer.replay_buffer.append(experience)
 
     def fit(self):
