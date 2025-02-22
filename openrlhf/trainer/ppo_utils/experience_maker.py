@@ -161,6 +161,7 @@ class NaiveExperienceMaker(ABC):
 
         # custom reward func for reinforced finetuning
         self.custom_reward_func = None
+        self.response_length_list = []
         if remote_rm_url and remote_rm_url[0].endswith(".py"):
             print(f"Loading custom `reward_func(queries, prompts)` from {remote_rm_url[0]}")
             import importlib.util
@@ -265,6 +266,7 @@ class NaiveExperienceMaker(ABC):
         """
         Generate samples and return in batches.
         """
+        self.response_length_list = []
         assert not getattr(self, "packing_samples", False)
         args = self.strategy.args
         self.actor.eval()
@@ -284,6 +286,7 @@ class NaiveExperienceMaker(ABC):
                 visual_inputs = None
 
             sequences, attention_mask, action_mask = self.actor.generate(**inputs, **generate_kwargs)
+            self.response_length_list.extend(attention_mask.float().sum(dim=-1).tolist())
             samples = Samples(
                 sequences=sequences,
                 attention_mask=attention_mask,
@@ -357,12 +360,17 @@ class NaiveExperienceMaker(ABC):
         else:
             kl = torch.zeros_like(action_log_probs, dtype=action_log_probs.dtype, device=action_log_probs.device)
 
+        assert isinstance(r,dict)
+        total_reward = r.pop("rewards")
+        specific_rewards = r
+
         info = {
             "kl": masked_mean(kl, action_mask, dim=-1),
-            "reward": r,
+            "reward": total_reward,
             "response_length": samples.response_length,
             "total_length": samples.total_length,
             "num_actions": num_actions,
+            **specific_rewards
         }
         # reset model state
         self.actor.train()
@@ -657,8 +665,17 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
             base_action_log_probs = base_action_log_probs.to(device)
         if value is not None:
             value = value.to(device)
-        rewards = [r.to(device) for r in rewards]
-        r = self.reward_fn(rewards) if len(rewards) > 0 else rewards[0]
+
+        for r in rewards:
+            assert isinstance(r,dict)
+        total_rewards = [r.pop('rewards').to(device) for r in rewards]
+        specific_rewards = {}
+        for r in rewards:
+            for k in r.keys():
+                r[k] = r[k].to(device)
+            specific_rewards.update(r)
+
+        r = self.reward_fn(total_rewards) if len(total_rewards) > 0 else total_rewards[0]
 
         # avoid CUDA OOM when colocate models
         if args.colocate_critic_reward and not self.remote_rm_url:
@@ -697,6 +714,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
             "response_length": samples.response_length,
             "total_length": samples.total_length,
             "num_actions": num_actions,
+            **specific_rewards
         }
 
         if self.strategy.args.perf:
@@ -720,7 +738,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
 
     def _generate_vllm(self, all_prompts: List[str], **kwargs) -> List[Samples]:
         from vllm import SamplingParams
-
+        self.response_length_list = []
         # round-robin load balance
         rank = torch.distributed.get_rank()
         world_size = torch.distributed.get_world_size()
@@ -831,7 +849,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                     visual_inputs.pop("input_ids")
                     visual_inputs.pop("attention_mask")
                     visual_inputs = {k: v.to("cuda") for k, v in visual_inputs.items()}
-
+                self.response_length_list.extend(attention_mask.float().sum(dim=-1).tolist())
                 samples_list.append(
                     Samples(
                         sequences=sequences,
@@ -870,6 +888,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 attention_mask = torch.tensor(attention_mask, device="cuda").unsqueeze(0)
                 action_mask = None
                 response_length = torch.tensor(num_actions, device="cuda", dtype=torch.float)
+                self.response_length_list.extend(num_actions)
                 total_length = torch.tensor(packed_seq_lens, device="cuda", dtype=torch.float)
                 samples_list.append(
                     Samples(

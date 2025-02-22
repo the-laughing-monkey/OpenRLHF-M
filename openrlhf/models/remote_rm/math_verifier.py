@@ -101,6 +101,8 @@ def get_reward():
     if "query" not in data:
         return jsonify({"error": "queries field is required"}), 400
     rewards = []
+    format_rewards = []
+    acc_reweards = []
     for q,problem in zip(data["query"],data["prompts"]):
         if problem is None:
             return jsonify({"error": f"problem not found from {q}"}), 400
@@ -112,7 +114,7 @@ def get_reward():
         response = get_response_from_query(q) or q
         if response is None:
             return jsonify({"error": f"response not found from {q}"}), 400
-        format_reward = float(verify_format(response))
+        format_reward = float(verify_format(response)) * 0.5
         input_queue.put((response, answer))
         acc_reward = float(output_queue.get())
         do_print = random.randint(1, 20) == 1
@@ -121,9 +123,11 @@ def get_reward():
             info = re.sub(r"<\|.*?\|>","",info)
             print(info)
             
-        rewards.append(0.5 * format_reward + acc_reward)
+        rewards.append(format_reward + acc_reward)
+        format_rewards.append(format_reward)
+        acc_reweards.append(acc_reward)
     # 返回包含 rewards 的响应
-    return jsonify({"rewards": rewards})
+    return jsonify({"rewards": rewards,"format_rewards":format_rewards,"acc_rewards":acc_reweards})
 
 
 if __name__ == "__main__":
