@@ -110,7 +110,7 @@ def train(args):
             ReferenceModelRayActor,
             pg=pg,
             num_gpus_per_actor=0.2 if pg else 1,
-    )
+        )
 
     if not args.colocate_all_models:
         pg = None
@@ -337,10 +337,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--advantage_estimator",
         type=str,
-        choices=["gae", "reinforce", "rloo", "reinforce_baseline"],
+        choices=["gae", "reinforce", "rloo", "reinforce_baseline", "group_norm"],
         default="gae",
-        help="Choose advantage estimation method: gae, reinforce, rloo, reinforce_baseline",
+        help="Choose advantage estimation method: gae, reinforce, rloo, reinforce_baseline, group_norm",
     )
+    parser.add_argument("--use_kl_loss", action="store_true", default=False, help="whether to use KL loss from GRPO")
 
     #  Models
     parser.add_argument("--pretrain", type=str, default=None, help="HF model name or path")
@@ -369,6 +370,7 @@ if __name__ == "__main__":
     parser.add_argument("--pretrain_split", type=str, default="train")
 
     parser.add_argument("--input_key", type=str, default="input", help="JSON dataset key")
+    parser.add_argument("--label_key", type=str, default=None, help="JSON dataset key")
     parser.add_argument("--input_template", type=str, default=None)
     parser.add_argument(
         "--apply_chat_template", action="store_true", default=False, help="Use HF tokenizer chat template"
@@ -404,8 +406,8 @@ if __name__ == "__main__":
         else:
             args.critic_pretrain = args.pretrain
 
-    if args.advantage_estimator in ["rloo", "reinforce_baseline"]:
-        assert args.n_samples_per_prompt > 1, "RLOO requires n_samples_per_prompt > 1"
+    if args.advantage_estimator in ["rloo", "reinforce_baseline", "group_norm"]:
+        assert args.n_samples_per_prompt > 1, f"{args.advantage_estimator} requires n_samples_per_prompt > 1"
 
     if args.remote_rm_url:
         args.remote_rm_url = args.remote_rm_url.split(",")
