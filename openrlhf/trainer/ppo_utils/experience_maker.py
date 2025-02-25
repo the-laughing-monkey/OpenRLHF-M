@@ -712,14 +712,13 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         if value is not None:
             value = value.to(device)
 
-        for r in rewards:
-            assert isinstance(r,dict)
-        total_rewards = [r.pop('rewards').to(device) for r in rewards]
+        total_rewards = [r.pop('rewards').to(device) if isinstance(r,dict) else r.to(device) for r in rewards]
         specific_rewards = {}
         for r in rewards:
-            for k in r.keys():
-                r[k] = r[k].to(device)
-            specific_rewards.update(r)
+            if isinstance(r,dict):
+                for k in r.keys():
+                    r[k] = r[k].to(device)
+                specific_rewards.update(r)
 
         r = self.reward_fn(total_rewards) if len(total_rewards) > 0 else total_rewards[0]
 
