@@ -434,9 +434,6 @@ if __name__ == "__main__":
         )
 
     if args.train_vlm: 
-        if args.packing_samples:
-            print("[Warning] --train_vlm is not supported with --packing_samples. We will set args.packing_samples to False")
-            args.packing_samples = False
         if args.pretrain_data:
             print("[Warning] --train_vlm is not supported with --pretrain_data. We will set args.pretrain_data to None")
             args.pretrain_data = None
