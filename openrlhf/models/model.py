@@ -184,6 +184,7 @@ def _get_reward_model(base_llm_model, value_head_prefix="score", packing_samples
             attention_mask: Optional[torch.Tensor] = None,
             return_output=False,
             ring_attn_group=None,
+            values_allgather=False,
             packed_seq_lens=None,
             visual_inputs=None,
         ) -> torch.Tensor:
@@ -217,7 +218,7 @@ def _get_reward_model(base_llm_model, value_head_prefix="score", packing_samples
 
             if self.packing_samples:
                 packed_seq_lens = torch.tensor(packed_seq_lens, device=values.device)
-                if ring_attn_group is not None:
+                if ring_attn_group is not None and values_allgather:
                     reward = all_gather(values, ring_attn_group).reshape(1, -1)
                     ring_attn_size = torch.distributed.get_world_size(ring_attn_group)
                     pad_len = (ring_attn_size - reward.shape[-1] % ring_attn_size) % ring_attn_size
@@ -268,6 +269,7 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
             attention_mask: Optional[torch.Tensor] = None,
             return_output=False,
             ring_attn_group=None,
+            values_allgather=False,
             packed_seq_lens=None,
             visual_inputs={},
         ) -> torch.Tensor:
@@ -297,7 +299,7 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
                 raise ValueError("outputs should contain either last_hidden_state or hidden_states")
 
             values = getattr(self, self.value_head_prefix)(last_hidden_states).squeeze(-1)
-            if ring_attn_group is not None:
+            if ring_attn_group is not None and values_allgather:
                 values = all_gather(values, ring_attn_group).reshape(values.shape[0], -1)[:, :-1]
             else:
                 values = values[:, :-1]

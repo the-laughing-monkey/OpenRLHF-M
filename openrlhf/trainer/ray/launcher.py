@@ -145,7 +145,7 @@ class RewardModelRayActor(BasePPORole):
             visual_inputs = {}
         visual_inputs = {k:v.to(device) for k,v in visual_inputs.items()}
         with torch.no_grad():
-            reward = self.model(sequences.to(device), attention_mask.to(device), ring_attn_group=self.strategy.ring_attn_group, packed_seq_lens=packed_seq_lens, visual_inputs=visual_inputs)
+            reward = self.model(sequences.to(device), attention_mask.to(device), ring_attn_group=self.strategy.ring_attn_group, values_allgather=True, packed_seq_lens=packed_seq_lens, visual_inputs=visual_inputs)
         return reward.to("cpu")
 
     def empty_cache(self) -> None:
