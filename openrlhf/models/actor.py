@@ -195,7 +195,6 @@ class Actor(nn.Module):
         visual_inputs: Optional[dict] = None,
     ) -> torch.Tensor:
         """Returns action log probs"""
-        assert len(visual_inputs) > 0
         if visual_inputs is None:
             visual_inputs = {}
         '''

@@ -376,7 +376,7 @@ class NaiveExperienceMaker(ABC):
         self.actor.train()
         if self.critic is not None:
             self.critic.train()
-        assert len(visual_inputs) > 0
+
         return Experience(
             sequences,
             action_log_probs,
@@ -722,7 +722,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         if self.strategy.args.perf:
             self.perf_stats["actor_value_rm_time"] += actor_value_rm_time
             self.perf_stats["wait_time"] += wait_time
-        assert len(visual_inputs) > 0
+
         experience = Experience(
             sequences,
             action_log_probs,

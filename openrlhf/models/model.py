@@ -267,7 +267,6 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
             packed_seq_lens=None,
             visual_inputs={},
         ) -> torch.Tensor:
-            assert len(visual_inputs) > 0, "visual_inputs should not be empty"
             if not self.packing_samples:
                 # https://github.com/OpenRLHF/OpenRLHF/issues/217
                 position_ids = attention_mask.long().cumsum(-1) - 1
