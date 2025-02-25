@@ -577,7 +577,6 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 # send experience to critic
                 experience_cpu = deepcopy(experience)
                 experience_cpu.to_device("cpu")
-                assert len(experience_cpu.visual_inputs) > 0
                 self._ref = self.critic.append.remote(experience_cpu)
         return experiences
 
