@@ -504,7 +504,7 @@ class PPOTrainer(ABC):
             visual_inputs = experience.visual_inputs
             # pad seq makes the sequence len a multiple of ring_attention_size.
             if self.strategy.ring_attn_group is not None:
-                sequences, attention_mask, num_actions, packed_seq_lens = pad_sequences(
+                pad_len, sequences, attention_mask, num_actions, packed_seq_lens = pad_sequences(
                     sequences, 
                     attention_mask, 
                     num_actions, 
