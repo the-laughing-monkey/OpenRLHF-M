@@ -10,7 +10,7 @@ from transformers import BitsAndBytesConfig, AutoConfig
 from transformers.integrations.deepspeed import HfDeepSpeedConfig
 from flash_attn.utils.distributed import all_gather
 
-from .ring_attn_utils import convert_ring_attn_params
+from .ring_attn_utils import convert_ring_attn_params, set_hacked_position_ids, clear_hacked_position_ids
 from .utils import log_probs_from_logits, reset_position_ids
 from ..utils.utils import get_generation_cls
 
@@ -218,9 +218,14 @@ class Actor(nn.Module):
                 )
             else:
                 position_ids = reset_position_ids(attention_mask)
+            #position_ids is directly hacked into flash_attn_forward to distinguish between different sequences
+            set_hacked_position_ids(position_ids)
+            #To get correct position embedding, we just need to use the local position_ids because of the relativity of position embedding.
+            position_ids = None
             # explicitly ignore attention_mask for packing_samples
             attention_mask = None
         output = self.model(sequences, attention_mask=attention_mask, position_ids=position_ids, **visual_inputs)
+        clear_hacked_position_ids()
         # https://github.com/OpenRLHF/OpenRLHF/pull/634
         output["logits"] = output["logits"].to(torch.float32)
 

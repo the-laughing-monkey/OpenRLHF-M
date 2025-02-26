@@ -11,7 +11,7 @@ from transformers.integrations.deepspeed import HfDeepSpeedConfig
 
 from openrlhf.utils.logging_utils import init_logger
 
-from .ring_attn_utils import convert_ring_attn_params
+from .ring_attn_utils import convert_ring_attn_params, set_hacked_position_ids, clear_hacked_position_ids
 from .utils import reset_position_ids
 from ..utils.utils import get_generation_cls
 
@@ -202,12 +202,15 @@ def _get_reward_model(base_llm_model, value_head_prefix="score", packing_samples
                     )
                 else:
                     position_ids = reset_position_ids(attention_mask)
+                set_hacked_position_ids(position_ids)
+                position_ids = None
                 # explicitly ignore attention_mask for packing_samples
                 attention_mask = None
 
             outputs = super().forward(
                 input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids,output_hidden_states=True, **visual_inputs
             )
+            clear_hacked_position_ids()
             if "last_hidden_state" in outputs:
                 last_hidden_states = outputs["last_hidden_state"]
             elif "hidden_states" in outputs:
@@ -285,12 +288,15 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
                     )
                 else:
                     position_ids = reset_position_ids(attention_mask)
+                set_hacked_position_ids(position_ids)
+                position_ids = None
                 # explicitly ignore attention_mask for packing_samples
                 attention_mask = None
 
             outputs = super().forward(
                 input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids,output_hidden_states=True, **visual_inputs
             )
+            clear_hacked_position_ids()
             if "last_hidden_state" in outputs:
                 last_hidden_states = outputs["last_hidden_state"]
             elif "hidden_states" in outputs:
