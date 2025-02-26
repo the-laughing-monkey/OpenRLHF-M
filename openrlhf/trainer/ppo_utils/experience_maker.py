@@ -131,6 +131,7 @@ class Samples:
     prompts: list[str]
     visual_inputs: Optional[Dict]
     labels: list[str]
+    pad_len: Optional[int]
 
 
 class NaiveExperienceMaker(ABC):
@@ -213,6 +214,7 @@ class NaiveExperienceMaker(ABC):
         args = self.strategy.args
         # generate responses
         if self.strategy.ring_attn_group is not None:
+            # Only rank 0 in the ring attention group executes the generation function, and then broadcasts it to all other ranks.
             if self.strategy.ring_attn_rank == 0:
                 samples_list = self.generate_samples(all_prompts, all_labels, **generate_kwargs)
                 dist.broadcast_object_list(samples_list, src=dist.get_rank(), group=self.strategy.ring_attn_group)
@@ -663,7 +665,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         # support remote RM API with ray
         if not self.remote_rm_url:
             for rm in self.reward_model:
-                r_refs.append(rm.forward.remote(sequences_cpu, attention_mask_cpu, packed_seq_lens=packed_seq_lens, visual_inputs=visual_inputs_cpu))
+                r_refs.append(rm.forward.remote(sequences_cpu, attention_mask_cpu, packed_seq_lens=packed_seq_lens, pad_sequence=True, visual_inputs=visual_inputs_cpu))
         else:
             # remote RM
             if not self.packing_samples:
@@ -743,7 +745,9 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
             kl_mean = masked_mean(kl, action_mask, dim=-1)
         else:
             if self.strategy.ring_attn_group is not None:
+                assert samples.pad_len is not None
                 sequences, attention_mask, num_actions, packed_seq_lens, _, _, kl = unpad_sequences(
+                    pad_len=samples.pad_len,
                     sequences=sequences,
                     attention_mask=attention_mask,
                     num_actions=num_actions,
@@ -929,6 +933,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         prompts=prompts,
                         visual_inputs=visual_inputs,
                         labels=labels,
+                        pad_len=None
                     )
                 )
             else:
@@ -954,7 +959,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
 
                 # pad seq makes the sequence a multiple of ring_attention_size.
                 if self.strategy.ring_attn_group is not None:
-                    sequences, attention_mask, num_actions, packed_seq_lens = pad_sequences(
+                    pad_len, sequences, attention_mask, num_actions, packed_seq_lens = pad_sequences(
                         sequences=sequences,
                         attention_mask=attention_mask,
                         num_actions=num_actions,
@@ -988,6 +993,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         prompts=prompts,
                         visual_inputs=visual_inputs,
                         labels=labels,
+                        pad_len=pad_len
                     )
                 )
         return samples_list

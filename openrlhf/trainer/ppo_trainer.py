@@ -362,7 +362,7 @@ class PPOTrainer(ABC):
             visual_inputs = experience.visual_inputs
             # pad seq makes the sequence a multiple of ring_attention_size.
             if self.strategy.ring_attn_group is not None:
-                sequences, attention_mask, num_actions, packed_seq_lens = pad_sequences(
+                pad_len, sequences, attention_mask, num_actions, packed_seq_lens = pad_sequences(
                     sequences, 
                     attention_mask, 
                     num_actions, 
@@ -395,7 +395,9 @@ class PPOTrainer(ABC):
         )
         # unpad sequence ensures that pad tokens do not contribute to the loss calculation.
         if self.strategy.ring_attn_group is not None:
+            assert pad_len is not None
             sequences, attention_mask, num_actions, packed_seq_lens, action_log_probs, _, _ = unpad_sequences(
+                pad_len=pad_len,
                 sequences=sequences, 
                 attention_mask=attention_mask, 
                 num_actions=num_actions, 
@@ -526,12 +528,15 @@ class PPOTrainer(ABC):
             attention_mask=attention_mask,
             return_output=True,
             ring_attn_group=self.strategy.ring_attn_group,
+            values_allgather=True,
             packed_seq_lens=packed_seq_lens,
             visual_inputs=visual_inputs,
         )
         # unpad sequence ensures that pad tokens do not contribute to the loss calculation
         if self.strategy.ring_attn_group is not None:
+            assert pad_len is not None
             sequences, attention_mask, num_actions, packed_seq_lens, _, values, _ = unpad_sequences(
+                pad_len=pad_len,
                 sequences=sequences, 
                 attention_mask=attention_mask, 
                 num_actions=num_actions, 
