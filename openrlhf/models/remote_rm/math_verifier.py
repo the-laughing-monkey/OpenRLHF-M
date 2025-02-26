@@ -10,6 +10,8 @@ from flask import Flask, jsonify, request
 from latex2sympy2_extended import NormalizationConfig
 from math_verify import LatexExtractionConfig, parse, verify
 
+from loguru import logger
+
 app = Flask(__name__)
 
 problem_to_answer = {}
@@ -121,7 +123,7 @@ def get_reward():
         if do_print:
             info=f"Query: {q}\n\nProblem: {problem}\n\n Answer: {answer}\n\n Response: {response}\n\n Format Reward: {format_reward}\n\n Acc Reward: {acc_reward}\n\n"
             info = re.sub(r"<\|.*?\|>","",info)
-            print(info)
+            logger.info(info)
             
         rewards.append(format_reward + acc_reward)
         format_rewards.append(format_reward)
@@ -141,8 +143,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_key", type=str, default="prompt", help="The key name of prompt."
     )
+    parser.add_argument("--log_file", type=str, default="remote_rm.log", help="Log file path")
     args = parser.parse_args()
-    
+    logger.remove()
+    logger.add(args.log_file)
     # Split dataset paths and load all datasets
     dataset = []
     for dataset_path in args.dataset.split(','):
