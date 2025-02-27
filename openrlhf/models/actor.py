@@ -3,12 +3,14 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+from torch.nn import functional as F
 from peft import LoraConfig, TaskType, get_peft_model
 from peft.tuners.lora import LoraLayer
 from transformers import BitsAndBytesConfig, AutoConfig
 from transformers.integrations.deepspeed import HfDeepSpeedConfig
+from flash_attn.utils.distributed import all_gather
 
-from .ring_attn_utils import convert_ring_attn_params
+from .ring_attn_utils import convert_ring_attn_params, set_hacked_position_ids, clear_hacked_position_ids
 from .utils import log_probs_from_logits, reset_position_ids
 from ..utils.utils import get_generation_cls
 
@@ -191,6 +193,7 @@ class Actor(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
         return_output=False,
         ring_attn_group: Optional[dist.ProcessGroup] = None,
+        logps_allgather=False,
         packed_seq_lens: Optional[list[int]] = None,
         visual_inputs: Optional[dict] = None,
     ) -> torch.Tensor:
@@ -209,14 +212,20 @@ class Actor(nn.Module):
         else:
             # convert attention_mask to position_ids
             if ring_attn_group is not None:
+                labels = sequences
                 sequences, attention_mask, position_ids = convert_ring_attn_params(
                     sequences, attention_mask, packed_seq_lens, ring_attn_group
                 )
             else:
                 position_ids = reset_position_ids(attention_mask)
+            #position_ids is directly hacked into flash_attn_forward to distinguish between different sequences
+            set_hacked_position_ids(position_ids)
+            #To get correct position embedding, we just need to use the local position_ids because of the relativity of position embedding.
+            position_ids = None
             # explicitly ignore attention_mask for packing_samples
             attention_mask = None
         output = self.model(sequences, attention_mask=attention_mask, position_ids=position_ids, **visual_inputs)
+        clear_hacked_position_ids()
         # https://github.com/OpenRLHF/OpenRLHF/pull/634
         output["logits"] = output["logits"].to(torch.float32)
 
@@ -224,11 +233,28 @@ class Actor(nn.Module):
             assert return_output
             return output
 
-        log_probs = log_probs_from_logits(output["logits"][:, :-1, :], sequences[:, 1:])
-
         if not self.packing_samples:
+            log_probs = log_probs_from_logits(output["logits"][:, :-1, :], sequences[:, 1:])
             action_log_probs = log_probs[:, -num_actions:]
         else:
+            if ring_attn_group is not None and logps_allgather:
+                rank = dist.get_rank(ring_attn_group)
+                ring_attn_size = dist.get_world_size(ring_attn_group)
+                total_seq_len = labels.numel()
+                local_seq_len = total_seq_len // ring_attn_size
+                local_slice = slice(rank * local_seq_len + 1, (rank + 1) * local_seq_len + 1)
+                local_label = labels[:, local_slice]
+                if rank == ring_attn_size - 1:
+                    # add a dummy label to the last logit
+                    local_label = F.pad(local_label, (0, 1), value=0)
+                local_per_token_logps = torch.gather(
+                    output["logits"].log_softmax(-1), dim=2, index=local_label.unsqueeze(2)
+                ).squeeze(2)
+                per_token_logps = all_gather(local_per_token_logps, ring_attn_group).reshape((1, -1))
+                log_probs = per_token_logps[:, :-1]
+            else:
+                log_probs = log_probs_from_logits(output["logits"][:, :-1, :], sequences[:, 1:])
+
             assert isinstance(num_actions, list) and len(num_actions) == len(packed_seq_lens)
             action_log_probs = []
             offset = 0

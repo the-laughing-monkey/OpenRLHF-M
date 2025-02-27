@@ -18,7 +18,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 from openrlhf.models import Actor
-from openrlhf.models.ring_attn_utils import get_ring_attn_group, set_ring_attn_group
+from openrlhf.models.ring_attn_utils import get_ring_attn_group, set_ring_attn_group, substitute_ring_flash_attn
 from openrlhf.utils.distributed_sampler import DistributedSampler
 
 from .deepspeed_utils import (
@@ -91,6 +91,7 @@ class DeepspeedStrategy(ABC):
         self.ring_attn_size = getattr(self.args, "ring_attn_size", 1)
         if self.ring_attn_size == 1:
             self.ring_attn_rank = 0
+            substitute_ring_flash_attn()
             return
 
         ring_head_stride = getattr(self.args, "ring_head_stride", 1)
@@ -105,10 +106,12 @@ class DeepspeedStrategy(ABC):
             if dist.get_rank() in ring_attn_ranks:
                 set_ring_attn_group(group)
                 self.ring_attn_rank = dist.get_rank(group=group)
+                self.ring_attn_ranks = ring_attn_ranks
 
         from ring_flash_attn import substitute_hf_flash_attn
 
         substitute_hf_flash_attn(self.ring_attn_group, ring_head_stride)
+        substitute_ring_flash_attn()
 
     @property
     def ring_attn_group(self):

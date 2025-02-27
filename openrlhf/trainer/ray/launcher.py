@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Type
 
 import ray
 import torch
+import torch.distributed as dist
 from ray.util.placement_group import PlacementGroup, placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 
@@ -86,6 +87,7 @@ class ReferenceModelRayActor(BasePPORole):
         num_actions: int = None,
         attention_mask: Optional[torch.Tensor] = None,
         return_output=False,
+        logps_allgather=False,
         packed_seq_lens: Optional[list[int]] = None,
         visual_inputs: Optional[dict] = None,
     ) -> torch.Tensor:
@@ -99,6 +101,8 @@ class ReferenceModelRayActor(BasePPORole):
                 num_actions,
                 attention_mask.to(device),
                 return_output=return_output,
+                ring_attn_group=self.strategy.ring_attn_group,
+                logps_allgather=logps_allgather,
                 packed_seq_lens=packed_seq_lens,
                 visual_inputs=visual_inputs,
             )
@@ -134,14 +138,14 @@ class RewardModelRayActor(BasePPORole):
         self.model.eval()
 
     def forward(
-        self, sequences: torch.LongTensor, attention_mask: Optional[torch.Tensor] = None, packed_seq_lens=None, visual_inputs: Optional[dict] = None,
+        self, sequences: torch.LongTensor, attention_mask: Optional[torch.Tensor] = None, packed_seq_lens=None, pad_sequence=False, visual_inputs: Optional[dict] = None
     ) -> torch.Tensor:
         device = torch.cuda.current_device()
         if visual_inputs is None:
             visual_inputs = {}
         visual_inputs = {k:v.to(device) for k,v in visual_inputs.items()}
         with torch.no_grad():
-            reward = self.model(sequences.to(device), attention_mask.to(device), packed_seq_lens=packed_seq_lens, visual_inputs=visual_inputs)
+            reward = self.model(sequences.to(device), attention_mask.to(device), ring_attn_group=self.strategy.ring_attn_group, pad_sequence=True, packed_seq_lens=packed_seq_lens, visual_inputs=visual_inputs)
         return reward.to("cpu")
 
     def empty_cache(self) -> None:
