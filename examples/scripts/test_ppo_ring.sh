@@ -26,7 +26,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --vllm_num_engines 4 \
    --vllm_tensor_parallel_size 1 \
    --colocate_actor_ref \
-   --vllm_sync_backend nccl \
+   --vllm_sync_backend gloo \
    --enable_prefix_caching \
    --pretrain $PRETRAIN_MODEL \
    --save_path $SAVE_PATH/$MODEL_CPK_NAME \
