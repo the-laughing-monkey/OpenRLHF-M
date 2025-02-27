@@ -111,15 +111,16 @@ def unpad_sequences(pad_len, sequences, attention_mask, num_actions, packed_seq_
 
 HACKED_POSITION_IDS = None
 
-raw_flash_attention_forward = transformers.modeling_flash_attention_utils._flash_attention_forward
+#Both ring and our hack substitute flash_attn. This func must be called after ring's substitue_hf_flash_attn.
+def substitute_ring_flash_attn():
+    raw_flash_attention_forward = transformers.modeling_flash_attention_utils._flash_attention_forward
+    def _hacked_flash_attention_forward(*args,**kwargs):
+        global HACKED_POSITION_IDS
+        if HACKED_POSITION_IDS is not None:
+            kwargs['position_ids'] = HACKED_POSITION_IDS
+        return raw_flash_attention_forward(*args,**kwargs)
 
-def _hacked_flash_attention_forward(*args,**kwargs):
-    global HACKED_POSITION_IDS
-    if HACKED_POSITION_IDS is not None:
-        kwargs['position_ids'] = HACKED_POSITION_IDS
-    return raw_flash_attention_forward(*args,**kwargs)
-
-transformers.modeling_flash_attention_utils._flash_attention_forward = _hacked_flash_attention_forward
+    transformers.modeling_flash_attention_utils._flash_attention_forward = _hacked_flash_attention_forward
 
 def set_hacked_position_ids(position_ids):
     global HACKED_POSITION_IDS
