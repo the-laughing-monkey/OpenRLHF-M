@@ -1,7 +1,7 @@
 export ROOT_PATH="/mnt/private_berlinni/zgr/project/lmm-r1-dev"
 export DATASET="$ROOT_PATH/data/deepscaler/deepscaler_chatml.jsonl"
 #export HF_ENDPOINT="https://hf-mirror.com"
-export WANDB_MODE="offline"
+export WANDB_MODE="online"
 export PYTHONPATH=$(pwd):$PYTHONPATH
 MODEL_CPK_NAME="test"
 PRETRAIN_MODEL="$ROOT_PATH/ckpts/Qwen2.5-Math-1.5B"
@@ -26,17 +26,17 @@ ray job submit --address="http://127.0.0.1:8265" \
    --vllm_num_engines 4 \
    --vllm_tensor_parallel_size 1 \
    --colocate_actor_ref \
-   --vllm_sync_backend gloo \
+   --vllm_sync_backend nccl \
    --enable_prefix_caching \
    --pretrain $PRETRAIN_MODEL \
    --save_path $SAVE_PATH/$MODEL_CPK_NAME \
    --load_checkpoint \
    --micro_train_batch_size 4 \
-   --train_batch_size 128 \
-   --micro_rollout_batch_size 8 \
-   --rollout_batch_size 128 \
+   --train_batch_size 64 \
+   --micro_rollout_batch_size 16 \
+   --rollout_batch_size 64 \
    --temperature 1 \
-   --n_samples_per_prompt 16 \
+   --n_samples_per_prompt 1 \
    --max_epochs 1 \
    --num_episodes 2 \
    --prompt_max_len 1000 \
@@ -46,7 +46,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --zero_stage 3 \
    --bf16 \
    --actor_learning_rate 1e-6 \
-   --init_kl_coef 0.001 \
+   --init_kl_coef 0.0 \
    --lambd 1 \
    --gamma 1 \
    --prompt_data $DATASET \
@@ -59,7 +59,10 @@ ray job submit --address="http://127.0.0.1:8265" \
    --save_hf_ckpt \
    --packing_samples \
    --ring_attn_size 2 \
-   --ring_head_stride 2
+   --ring_head_stride 2 \
+   --use_wandb 9aeddea3b60542704fd5cd44d4c4a1d1d911ce54 \
+   --wandb_run_name $MODEL_CPK_NAME \
+   --wandb_group deepscaler
 
 # also supports --advantage_estimator rloo
 #kill $childpid
