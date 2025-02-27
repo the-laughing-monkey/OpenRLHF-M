@@ -572,8 +572,10 @@ class PPOTrainer(ABC):
     def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict={}, client_states={}):
         if global_step % args.logging_steps == 0:
             # wandb
-            response_length_list = self.experience_maker.response_length_list
-            response_length_list = self.strategy.all_gather(response_length_list).tolist()
+            response_length_list = torch.tensor(self.experience_maker.response_length_list)
+            gathered_response_length_list = [None for _ in range(dist.get_world_size())]
+            dist.all_gather_object(gathered_response_length_list, response_length_list)
+            response_length_list = torch.cat(gathered_response_length_list).tolist()
             assert len(response_length_list) > 0
             if self._wandb is not None and self.strategy.is_rank_0():
                 logs = {
