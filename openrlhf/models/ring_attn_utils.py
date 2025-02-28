@@ -2,6 +2,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import transformers
+from transformers import Qwen2_5_VLForConditionalGeneration
 
 
 RING_ATTN_GROUP = None
@@ -129,3 +130,24 @@ def set_hacked_position_ids(position_ids):
 def clear_hacked_position_ids():
     global HACKED_POSITION_IDS
     HACKED_POSITION_IDS = None
+
+raw_get_rope_index = Qwen2_5_VLForConditionalGeneration.get_rope_index
+def hacked_get_rope_index(*args, **kwargs):
+    global HACKED_POSITION_IDS
+    position_ids, mrope_position_deltas = raw_get_rope_index(*args, **kwargs)
+    if HACKED_POSITION_IDS is None:
+        return position_ids, mrope_position_deltas
+    for i in range(HACKED_POSITION_IDS.size(0)):
+        seq_idxes = torch.nonzero(HACKED_POSITION_IDS[i]==0)[:,0]
+        seq_idxes = torch.cat([seq_idxes, torch.tensor([HACKED_POSITION_IDS.size(1)],device=seq_idxes.device)], dim=0)
+        st = 0
+        for seq_idx in seq_idxes:
+            if st == 0 and seq_idx == 0:
+                continue
+            #shape: [3,bs,seq_len]
+            raw_seq_position_ids = position_ids[:,i,st:seq_idx]
+            position_ids[:,i,st:seq_idx] = raw_seq_position_ids - raw_seq_position_ids[:,:1] + HACKED_POSITION_IDS[i,st]
+            st = seq_idx
+    return position_ids, mrope_position_deltas
+
+Qwen2_5_VLForConditionalGeneration.get_rope_index = hacked_get_rope_index
