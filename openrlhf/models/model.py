@@ -203,7 +203,7 @@ def _get_reward_model(base_llm_model, value_head_prefix="score", packing_samples
                 else:
                     position_ids = reset_position_ids(attention_mask)
                 set_hacked_position_ids(position_ids)
-                position_ids = None
+                #position_ids = None
                 # explicitly ignore attention_mask for packing_samples
                 attention_mask = None
 
@@ -290,7 +290,7 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
                 else:
                     position_ids = reset_position_ids(attention_mask)
                 set_hacked_position_ids(position_ids)
-                position_ids = None
+                #position_ids = None
                 # explicitly ignore attention_mask for packing_samples
                 attention_mask = None
 

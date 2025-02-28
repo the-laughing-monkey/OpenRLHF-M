@@ -221,7 +221,7 @@ class Actor(nn.Module):
             #position_ids is directly hacked into flash_attn_forward to distinguish between different sequences
             set_hacked_position_ids(position_ids)
             #To get correct position embedding, we just need to use the local position_ids because of the relativity of position embedding.
-            position_ids = None
+            #position_ids = None #TODO: Use true position_ids only works for text-only data
             # explicitly ignore attention_mask for packing_samples
             attention_mask = None
         output = self.model(sequences, attention_mask=attention_mask, position_ids=position_ids, **visual_inputs)
