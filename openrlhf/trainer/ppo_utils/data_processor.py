@@ -139,13 +139,16 @@ class Qwen2VLDataProcessor(BaseDataProcessor):
 
     def make_input_batch(self, inputs: List[Dict]) -> Dict:
         # each element has no batch dimension
-        batch = {k: None for k in inputs[0].keys()}
+        batch = {}
+        # collect all keys
+        for inp in inputs:
+            batch.update({k:None for k,v in inp.items() if v is not None})
         for k in batch.keys():
             if k in ["input_ids", "attention_mask"]:
-                batch[k] = torch.stack([inp[k] for inp in inputs], dim=0)
+                batch[k] = torch.stack([inp[k] for inp in inputs if k in inp], dim=0)
             elif k in ["pixel_values", "image_grid_thw"]:
                 # qwen2vl concat all patches of all images in a batch in the first dimension
-                batch[k] = torch.cat([inp[k] for inp in inputs], dim=0)
+                batch[k] = torch.cat([inp[k] for inp in inputs if k in inp], dim=0)
             else:
                 raise ValueError(f"Unknown key {k} for Qwen2VLDataProcessor")
         return batch
