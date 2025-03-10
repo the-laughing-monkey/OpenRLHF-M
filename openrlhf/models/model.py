@@ -195,7 +195,7 @@ def _get_reward_model(base_llm_model, value_head_prefix="score", packing_samples
                 # https://github.com/OpenRLHF/OpenRLHF/issues/217
                 #position_ids = attention_mask.long().cumsum(-1) - 1
                 #position_ids.masked_fill_(attention_mask == 0, 1)
-                position_ids = None
+                position_ids = super().get_position_ids(input_ids,attention_mask=attention_mask, **visual_inputs)
             else:
                 # convert attention_mask to position_ids
                 packed_position_ids = super().get_position_ids(input_ids, **visual_inputs)
@@ -288,7 +288,7 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
                 # https://github.com/OpenRLHF/OpenRLHF/issues/217
                 # position_ids = attention_mask.long().cumsum(-1) - 1
                 # position_ids.masked_fill_(attention_mask == 0, 1)
-                position_ids = None
+                position_ids = super().get_position_ids(input_ids,attention_mask=attention_mask, **visual_inputs)
             else:
                 # convert attention_mask to position_ids
                 packed_position_ids = super().get_position_ids(input_ids, **visual_inputs)

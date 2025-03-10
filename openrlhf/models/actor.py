@@ -210,7 +210,7 @@ class Actor(nn.Module):
             # https://github.com/OpenRLHF/OpenRLHF/issues/217
             #position_ids = attention_mask.long().cumsum(-1) - 1
             #position_ids.masked_fill_(attention_mask == 0, 1)
-            position_ids = None
+            position_ids = self.model.get_position_ids(sequences,attention_mask=attention_mask, **visual_inputs)
         else:
             # convert attention_mask to position_ids
             packed_position_ids = self.model.get_position_ids(sequences, **visual_inputs)
