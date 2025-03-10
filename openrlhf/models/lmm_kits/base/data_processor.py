@@ -6,31 +6,12 @@ import torch
 from transformers.processing_utils import ProcessorMixin
 from qwen_vl_utils import process_vision_info
 
-def add_pixel_bounds(messages:List[Dict]) -> List[Dict]:
-    # 默认的像素范围
-    DEFAULT_MIN_PIXELS = int(os.getenv("MIN_PIXELS", 4 * 28 * 28))
-    DEFAULT_MAX_PIXELS = int(os.getenv("MAX_PIXELS", 640 * 28 * 28))
-
-    def process_content(content):
-        if isinstance(content, list):
-            for item in content:
-                if isinstance(item, dict) and item.get("type") == "image":
-                    if "min_pixels" not in item:
-                        item["min_pixels"] = DEFAULT_MIN_PIXELS
-                    if "max_pixels" not in item:
-                        item["max_pixels"] = DEFAULT_MAX_PIXELS
-        return content
-
-    for message in messages:
-        for msg in message:
-            msg["content"] = process_content(msg["content"])
-    return messages
-
 class BaseDataProcessor(ABC):
-    def __init__(self, processor: ProcessorMixin):
+    def __init__(self, processor: ProcessorMixin,min_pixels:int,max_pixels:int):
         super().__init__()
         self.processor = processor
-
+        self.min_pixels = min_pixels
+        self.max_pixels = max_pixels
     @abstractmethod
     def __call__(
         self,
@@ -43,6 +24,25 @@ class BaseDataProcessor(ABC):
         truncation: Optional[bool] = True,
     ) -> Dict:
         raise NotImplementedError
+
+    def _add_pixel_bounds(self,messages:List[Dict]) -> List[Dict]:
+       DEFAULT_MIN_PIXELS = self.min_pixels
+       DEFAULT_MAX_PIXELS = self.max_pixels
+
+       def process_content(content):
+           if isinstance(content, list):
+               for item in content:
+                   if isinstance(item, dict) and item.get("type") == "image":
+                       if "min_pixels" not in item:
+                           item["min_pixels"] = DEFAULT_MIN_PIXELS
+                       if "max_pixels" not in item:
+                           item["max_pixels"] = DEFAULT_MAX_PIXELS
+           return content
+
+       for message in messages:
+           for msg in message:
+               msg["content"] = process_content(msg["content"])
+       return messages
 
     @abstractmethod
     def make_input_batch(self, inputs: List[Dict]) -> Dict:
@@ -61,7 +61,7 @@ class BaseDataProcessor(ABC):
             formated_messages = [messages]
         else:
             raise ValueError("Invalid messages format, must be a list of strings or a string or a dict")
-        return add_pixel_bounds(formated_messages)
+        return self._add_pixel_bounds(formated_messages)
 
     def apply_chat_template(
         self,

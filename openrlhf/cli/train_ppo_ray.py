@@ -341,7 +341,8 @@ if __name__ == "__main__":
         help="List of parameter name prefixes to freeze during training"
     )
     parser.add_argument("--drop_maxlen", action="store_true", default=False)
-
+    parser.add_argument("--max_pixels",type=int,default=640*28*28,help="Max pixels for image")
+    parser.add_argument("--min_pixels",type=int,default=4*28*28,help="Min pixels for image")
     # Reinforce
     parser.add_argument(
         "--advantage_estimator",

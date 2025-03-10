@@ -514,6 +514,8 @@ class ActorModelRayActor(BasePPORole):
             max_length=args.max_len,
             temperature=args.temperature,
             top_p=args.top_p,
+            min_pixels=args.min_pixels,
+            max_pixels=args.max_pixels,
             pad_token_id=self.tokenizer.pad_token_id,
             eos_token_id=self.tokenizer.eos_token_id,
             save_hf_ckpt=args.save_hf_ckpt,

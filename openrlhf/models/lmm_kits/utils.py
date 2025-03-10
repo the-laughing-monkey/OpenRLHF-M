@@ -10,9 +10,8 @@ def _get_kit_root_path(pretrain_or_model=None,model_type=None):
     return root_path
 
 def _get_hf_processor(pretrain, model, padding_side="left", strategy=None, use_fast=True):
-    # TODO: Maybe better max_pixels set methods for other vl model
-    min_pixels = int(os.getenv("MIN_PIXELS", 4*28*28))
-    max_pixels = int(os.getenv("MAX_PIXELS", 640*28*28))
+    min_pixels = strategy.args.min_pixels
+    max_pixels = strategy.args.max_pixels
     processor = AutoProcessor.from_pretrained(pretrain, trust_remote_code=True, use_fast=use_fast, min_pixels=min_pixels, max_pixels=max_pixels)
     tokenizer = processor.tokenizer
     tokenizer.padding_side = padding_side
@@ -29,7 +28,7 @@ def get_data_processor(pretrain_or_model, model, padding_side="left", strategy=N
     module = importlib.import_module(f"{root_path}.data_processor",package="openrlhf")
     data_processor_cls = getattr(module, "DataProcessor")
     hf_processor = _get_hf_processor(pretrain_or_model, model, padding_side, strategy,use_fast=use_fast)
-    data_processor = data_processor_cls(hf_processor)
+    data_processor = data_processor_cls(hf_processor,min_pixels=strategy.args.min_pixels,max_pixels=strategy.args.max_pixels)
     return data_processor
 
 def load_patch(pretrain_or_model=None,model_type=None):

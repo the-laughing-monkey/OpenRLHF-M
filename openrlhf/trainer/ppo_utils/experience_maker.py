@@ -843,8 +843,8 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         "prompt": p,
                         "multi_modal_data":{"image": imgs} if imgs else None,
                         "mm_processor_kwargs": {
-                            "min_pixels": int(os.getenv("MIN_PIXELS", 4 * 28 * 28)),
-                            "max_pixels": int(os.getenv("MAX_PIXELS", 640 * 28 * 28)),
+                            "min_pixels": kwargs.get("min_pixels", 4*28*28),
+                            "max_pixels": kwargs.get("max_pixels", 640*28*28),
                         },
                     } for p, imgs in zip(prompts,images)]
                 refs.append(

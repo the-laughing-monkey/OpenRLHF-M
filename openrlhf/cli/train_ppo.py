@@ -261,6 +261,8 @@ def train(args):
         max_length=args.max_len,
         temperature=args.temperature,
         top_p=args.top_p,
+        min_pixels=args.min_pixels,
+        max_pixels=args.max_pixels,
         pad_token_id=tokenizer.pad_token_id,
         eos_token_id=tokenizer.eos_token_id,
         # remote reward model
@@ -342,7 +344,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--adam_betas", type=float, nargs=2, default=(0.9, 0.95), help="Betas for Adam optimizer")
     parser.add_argument("--reward_clip_range", type=float, nargs=2, default=(-10, 10), help="Reward clip range")
-
+    parser.add_argument("--max_pixels",type=int,default=640*28*28,help="Max pixels for image")
+    parser.add_argument("--min_pixels",type=int,default=4*28*28,help="Min pixels for image")
     # DeepSpeed
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for deepspeed")
