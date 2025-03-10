@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 from .experience_maker import Experience
-from .data_processor import BaseDataProcessor
+from openrlhf.models.lmm_kits.base.data_processor import BaseDataProcessor
 
 @dataclass
 class BufferItem:
@@ -64,16 +64,14 @@ def split_experience_batch(experience: Experience, data_processor: Optional[Base
         assert batch_size == len(vals)
         for i, v in enumerate(vals):
             batch_kwargs[i][key] = v
-    if data_processor is not None:
-        visual_inputs_batch = experience.visual_inputs
-        visual_inputs_batch['input_ids'] = experience.sequences
-        visual_inputs_chunks = data_processor.split_input_batch(visual_inputs_batch)
-        for i, visual_inputs in enumerate(visual_inputs_chunks):
-            visual_inputs.pop('input_ids')
-            batch_kwargs[i]["visual_inputs"] = visual_inputs
-    else:
-        for i in range(batch_size):
-            batch_kwargs[i]["visual_inputs"] = None
+    
+    visual_inputs_batch = experience.visual_inputs
+    visual_inputs_batch['input_ids'] = experience.sequences
+    visual_inputs_chunks = data_processor.split_input_batch(visual_inputs_batch)
+    for i, visual_inputs in enumerate(visual_inputs_chunks):
+        visual_inputs.pop('input_ids')
+        batch_kwargs[i]["visual_inputs"] = visual_inputs
+
 
     for i in range(batch_size):
         batch_kwargs[i]["info"] = {}
@@ -125,8 +123,8 @@ def make_experience_batch(items: List[BufferItem], data_processor: Optional[Base
     for key in items[0].info.keys():
         vals = torch.tensor([item.info[key] for item in items])
         kwargs["info"][key] = vals
-    if data_processor is not None:
-        kwargs["visual_inputs"] = data_processor.make_input_batch([item.visual_inputs for item in items])
+    
+    kwargs["visual_inputs"] = data_processor.make_input_batch([item.visual_inputs for item in items])
     return Experience(**kwargs)
 
 

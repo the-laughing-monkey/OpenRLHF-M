@@ -180,25 +180,6 @@ class NaiveExperienceMaker(ABC):
             spec.loader.exec_module(reward_module)
             self.custom_reward_func = reward_module.reward_func
 
-    # tokenizer
-    def tokenize_fn(self, texts, max_length, padding=True, device=None):
-        if not padding:
-            # when padding is False, return tokenized texts as list
-            return self.tokenizer(
-                texts,
-                add_special_tokens=False,
-                max_length=max_length,
-                truncation=True,
-            )
-        batch = self.tokenizer(
-            texts,
-            return_tensors="pt",
-            add_special_tokens=False,
-            max_length=max_length,
-            padding=True,
-            truncation=True,
-        )
-        return {k: v.to(device) for k, v in batch.items()}
 
     @torch.no_grad()
     def make_experience_list(
@@ -297,15 +278,13 @@ class NaiveExperienceMaker(ABC):
         samples_list = []
         for i in range(0, len(all_prompts), args.micro_rollout_batch_size):
             prompts = all_prompts[i : i + args.micro_rollout_batch_size]
-            if self.data_processor is not None:
-                inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
-                visual_inputs = {}
-                for k,v in inputs.items():
-                    if k not in ["input_ids", "attention_mask"]:
-                        visual_inputs[k] = v
-            else:
-                inputs = self.tokenize_fn(prompts, self.prompt_max_len, device="cuda")
-                visual_inputs = None
+    
+            inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
+            visual_inputs = {}
+            for k,v in inputs.items():
+                if k not in ["input_ids", "attention_mask"]:
+                    visual_inputs[k] = v
+
 
             labels = all_labels[i : i + args.micro_rollout_batch_size]
             sequences, attention_mask, action_mask = self.actor.generate(**inputs, **generate_kwargs)
@@ -835,32 +814,23 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
 
         # Distribute requests to engines and collect responses to outputs
         refs = []
-        if self.data_processor is None:
-            # For LLM
-            all_prompt_token_ids = self.tokenize_fn(all_prompts, self.prompt_max_len, padding=False)["input_ids"]
-            for i, llm in enumerate(llms):
-                prompt_token_ids = all_prompt_token_ids[i * batch_size : (i + 1) * batch_size]
+        # For VLM
+        for i, llm in enumerate(llms):
+            messages = all_prompts[i * batch_size : (i + 1) * batch_size]
+            if messages:
+                prompts = self.data_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                images = [self.data_processor.get_images_from_messages(m) for m in messages]
+                vllm_inputs = [{
+                        "prompt": p,
+                        "multi_modal_data":{"image": imgs} if imgs else None,
+                        "mm_processor_kwargs": {
+                            "min_pixels": int(os.getenv("MIN_PIXELS", 4 * 28 * 28)),
+                            "max_pixels": int(os.getenv("MAX_PIXELS", 640 * 28 * 28)),
+                        },
+                    } for p, imgs in zip(prompts,images)]
                 refs.append(
-                    llm.add_requests.remote(rank, sampling_params=sampling_params, prompt_token_ids=prompt_token_ids)
+                    llm.add_requests_vlm.remote(rank, sampling_params=sampling_params, vllm_vision_input=vllm_inputs)
                 )
-        else:
-            # For VLM
-            for i, llm in enumerate(llms):
-                messages = all_prompts[i * batch_size : (i + 1) * batch_size]
-                if messages:
-                    prompts = self.data_processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                    images = [self.data_processor.get_images_from_messages(m) for m in messages]
-                    vllm_inputs = [{
-                            "prompt": p,
-                            "multi_modal_data":{"image": imgs} if imgs else None,
-                            "mm_processor_kwargs": {
-                                "min_pixels": int(os.getenv("MIN_PIXELS", 4 * 28 * 28)),
-                                "max_pixels": int(os.getenv("MAX_PIXELS", 640 * 28 * 28)),
-                            },
-                        } for p, imgs in zip(prompts,images)]
-                    refs.append(
-                        llm.add_requests_vlm.remote(rank, sampling_params=sampling_params, vllm_vision_input=vllm_inputs)
-                    )
 
 
         ray.get(refs)
@@ -914,12 +884,11 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 attention_mask = attention_mask.to("cuda")
                 action_mask = action_mask.to("cuda")
                 # Collect for visual input
-                visual_inputs = None
-                if self.data_processor is not None:
-                    visual_inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
-                    visual_inputs.pop("input_ids")
-                    visual_inputs.pop("attention_mask")
-                    visual_inputs = {k: v.to("cuda") for k, v in visual_inputs.items()}
+                
+                visual_inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
+                visual_inputs.pop("input_ids")
+                visual_inputs.pop("attention_mask")
+                visual_inputs = {k: v.to("cuda") for k, v in visual_inputs.items()}
                 self.response_length_list.extend(attention_mask.float().sum(dim=-1).tolist())
                 samples_list.append(
                     Samples(
@@ -976,12 +945,10 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 self.response_length_list.extend(num_actions)
                 total_length = torch.tensor(packed_seq_lens, device="cuda", dtype=torch.float)
                 # Collect for visual input
-                visual_inputs = None
-                if self.data_processor is not None:
-                    visual_inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
-                    visual_inputs.pop("input_ids")
-                    visual_inputs.pop("attention_mask")
-                    visual_inputs = {k: v.to("cuda") for k, v in visual_inputs.items()}
+                visual_inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
+                visual_inputs.pop("input_ids")
+                visual_inputs.pop("attention_mask")
+                visual_inputs = {k: v.to("cuda") for k, v in visual_inputs.items()}
                 samples_list.append(
                     Samples(
                         sequences=sequences,

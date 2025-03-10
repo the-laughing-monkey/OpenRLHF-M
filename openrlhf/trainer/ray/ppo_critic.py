@@ -11,7 +11,7 @@ from transformers.trainer import get_scheduler
 from openrlhf.models import get_llm_for_sequence_regression
 from openrlhf.trainer import PPOTrainer
 from openrlhf.trainer.ppo_utils import Experience
-from openrlhf.utils import get_tokenizer, get_vl_processor
+from openrlhf.models.lmm_kits.utils import get_data_processor
 from openrlhf.utils.deepspeed import DeepspeedStrategy
 
 from .launcher import BasePPORole
@@ -123,16 +123,11 @@ class CriticModelRayActor(BasePPORole):
         strategy.args.use_wandb = False
         # configure tokenizer
         args = strategy.args
-        if args.train_vlm:
-            self.processor = get_vl_processor(
-                pretrain, self.critic, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
-            )
-            self.tokenizer = self.processor.tokenizer
-        else:
-            self.processor = None
-            self.tokenizer = get_tokenizer(
-                pretrain, self.critic, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
-            )
+
+        self.data_processor = get_data_processor(
+            pretrain, self.critic, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
+        )
+
         self.trainer = CriticPPOTrainer(
             strategy,
             actor=None,
@@ -151,8 +146,7 @@ class CriticModelRayActor(BasePPORole):
             prompt_max_len=args.prompt_max_len,
             value_clip=args.value_clip,
             eps_clip=args.eps_clip,
-            processor=self.processor,
-            tokenizer=self.tokenizer
+            data_processor=self.data_processor
         )
 
     def forward(
@@ -196,18 +190,12 @@ class CriticModelRayActor(BasePPORole):
         args = self.strategy.args
 
         # save model checkpoint after fitting on only rank0
-        if args.train_vlm:
-            self.strategy.save_model(
-                self.critic,
-                self.processor,
-                args.save_path + "_critic",
-            )
-        else:
-            self.strategy.save_model(
-                self.critic,
-                self.tokenizer,
-                args.save_path + "_critic",
-            )
+        self.strategy.save_model(
+            self.critic,
+            self.data_processor.processor,
+            args.save_path + "_critic",
+        )
+
 
     def save_checkpoint(self, tag):
         args = self.strategy.args

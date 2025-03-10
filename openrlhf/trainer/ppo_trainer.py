@@ -15,7 +15,7 @@ from openrlhf.models.utils import masked_mean, unpacking_samples, compute_approx
 from openrlhf.models.ring_attn_utils import unpad_sequences, pad_sequences
 from openrlhf.utils.distributed_sampler import DistributedSampler
 
-from .ppo_utils import AdaptiveKLController, Experience, FixedKLController, NaiveExperienceMaker, NaiveReplayBuffer, DATA_PROCESSOR_MAP
+from .ppo_utils import AdaptiveKLController, Experience, FixedKLController, NaiveExperienceMaker, NaiveReplayBuffer
 
 
 class PPOTrainer(ABC):
@@ -83,8 +83,7 @@ class PPOTrainer(ABC):
         gradient_checkpointing: bool = False,
         max_epochs: int = 1,
         max_norm: float = 1.0,
-        processor: Optional[Callable[[Any], Dict]] = None,
-        tokenizer: Optional[Callable[[Any], Dict]] = None,
+        data_processor: Optional[Callable[[Any], Dict]] = None,
         prompt_max_len: int = 128,
         dataloader_pin_memory: bool = True,
         remote_rm_url: str = None,
@@ -104,13 +103,10 @@ class PPOTrainer(ABC):
         self.disable_ds_ckpt = disable_ds_ckpt
         self.micro_rollout_batch_size = micro_rollout_batch_size
         self.max_epochs = max_epochs
-        self.tokenizer = tokenizer
-        self.processor = processor
-        self.data_processor = None
-        # for vlm critic model, not provice processor.
-        if self.args.train_vlm and processor is not None:
-            self.data_processor = DATA_PROCESSOR_MAP[type(processor)](processor)
-            self.tokenizer = self.data_processor.tokenizer
+        self.data_processor = data_processor
+        self.tokenizer = data_processor.tokenizer
+        self.processor = data_processor.processor
+
 
         self.generate_kwargs = generate_kwargs
         self.dataloader_pin_memory = dataloader_pin_memory
@@ -153,7 +149,7 @@ class PPOTrainer(ABC):
             critic,
             reward_model,
             initial_model,
-            tokenizer,
+            self.tokenizer,
             self.data_processor,
             prompt_max_len,
             self.kl_ctl,

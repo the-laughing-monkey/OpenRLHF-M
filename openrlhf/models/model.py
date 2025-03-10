@@ -13,7 +13,7 @@ from openrlhf.utils.logging_utils import init_logger
 
 from .ring_attn_utils import convert_ring_attn_params, set_hacked_position_ids, clear_hacked_position_ids
 from .utils import reset_position_ids
-from ..utils.utils import get_generation_cls
+from openrlhf.models.lmm_kits.utils import get_generation_cls
 
 logger = init_logger(__name__)
 
@@ -190,25 +190,31 @@ def _get_reward_model(base_llm_model, value_head_prefix="score", packing_samples
         ) -> torch.Tensor:
             if visual_inputs is None:
                 visual_inputs = {}
+            inputs_embeds = super().get_inputs_embeds(input_ids, **visual_inputs)
             if not self.packing_samples:
                 # https://github.com/OpenRLHF/OpenRLHF/issues/217
-                position_ids = attention_mask.long().cumsum(-1) - 1
-                position_ids.masked_fill_(attention_mask == 0, 1)
+                #position_ids = attention_mask.long().cumsum(-1) - 1
+                #position_ids.masked_fill_(attention_mask == 0, 1)
+                position_ids = None
             else:
                 # convert attention_mask to position_ids
+                packed_position_ids = super().get_position_ids(input_ids, **visual_inputs)
                 if ring_attn_group is not None:
-                    input_ids, attention_mask, position_ids = convert_ring_attn_params(
-                        input_ids, attention_mask, packed_seq_lens, ring_attn_group
+                    input_ids, attention_mask, hacked_position_ids, inputs_embeds, split_position_ids = convert_ring_attn_params(
+                        input_ids, attention_mask, packed_seq_lens, ring_attn_group, inputs_embeds, packed_position_ids
                     )
+                    position_ids = super().offset_split_position_ids(split_position_ids, hacked_position_ids)
+                    
                 else:
-                    position_ids = reset_position_ids(attention_mask)
-                set_hacked_position_ids(position_ids)
-                #position_ids = None
+                    hacked_position_ids = reset_position_ids(attention_mask)
+                    position_ids = super().offset_split_position_ids(packed_position_ids, hacked_position_ids)
+
+                set_hacked_position_ids(hacked_position_ids)
                 # explicitly ignore attention_mask for packing_samples
                 attention_mask = None
 
             outputs = super().forward(
-                input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids,output_hidden_states=True, **visual_inputs
+                inputs_embeds=inputs_embeds, attention_mask=attention_mask, position_ids=position_ids,output_hidden_states=True, **visual_inputs
             )
             clear_hacked_position_ids()
             if "last_hidden_state" in outputs:
@@ -277,25 +283,32 @@ def _get_critic_model(base_llm_model, value_head_prefix="score", packing_samples
             packed_seq_lens=None,
             visual_inputs={},
         ) -> torch.Tensor:
+            inputs_embeds = super().get_inputs_embeds(input_ids, **visual_inputs)
             if not self.packing_samples:
                 # https://github.com/OpenRLHF/OpenRLHF/issues/217
-                position_ids = attention_mask.long().cumsum(-1) - 1
-                position_ids.masked_fill_(attention_mask == 0, 1)
+                # position_ids = attention_mask.long().cumsum(-1) - 1
+                # position_ids.masked_fill_(attention_mask == 0, 1)
+                position_ids = None
             else:
                 # convert attention_mask to position_ids
+                packed_position_ids = super().get_position_ids(input_ids, **visual_inputs)
                 if ring_attn_group is not None:
-                    input_ids, attention_mask, position_ids = convert_ring_attn_params(
-                        input_ids, attention_mask, packed_seq_lens, ring_attn_group
+                    
+                    input_ids, attention_mask, hacked_position_ids, inputs_embeds, split_position_ids = convert_ring_attn_params(
+                        input_ids, attention_mask, packed_seq_lens, ring_attn_group, inputs_embeds, packed_position_ids
                     )
+                    position_ids = super().offset_split_position_ids(split_position_ids, hacked_position_ids)
+                    
                 else:
-                    position_ids = reset_position_ids(attention_mask)
-                set_hacked_position_ids(position_ids)
-                #position_ids = None
+                    hacked_position_ids = reset_position_ids(attention_mask)
+                    position_ids = super().offset_split_position_ids(packed_position_ids, hacked_position_ids)
+
+                set_hacked_position_ids(hacked_position_ids)
                 # explicitly ignore attention_mask for packing_samples
                 attention_mask = None
 
             outputs = super().forward(
-                input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids,output_hidden_states=True, **visual_inputs
+                inputs_embeds=inputs_embeds, attention_mask=attention_mask, position_ids=position_ids,output_hidden_states=True, **visual_inputs
             )
             clear_hacked_position_ids()
             if "last_hidden_state" in outputs:

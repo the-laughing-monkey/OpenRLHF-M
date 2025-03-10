@@ -12,9 +12,10 @@ from transformers.trainer import get_scheduler
 
 from openrlhf.datasets import PromptDataset, SFTDataset
 from openrlhf.models import Actor
+from openrlhf.models.lmm_kits.utils import get_data_processor
 from openrlhf.trainer import PPOTrainer
 from openrlhf.trainer.ppo_utils import Experience, RemoteExperienceMaker
-from openrlhf.utils import blending_datasets, get_tokenizer, get_vl_processor
+from openrlhf.utils import blending_datasets
 from openrlhf.utils.deepspeed import DeepspeedStrategy
 from openrlhf.utils.distributed_util import init_process_group
 
@@ -257,7 +258,7 @@ class ActorPPOTrainer(PPOTrainer):
             save_path = os.path.join(args.ckpt_path, f"{tag}_hf")
             self.strategy.save_model(
                 self.ema_model if args.enable_ema else self.actor,
-                self.processor or self.tokenizer,
+                self.processor,
                 save_path,
             )
         # wait
@@ -305,16 +306,11 @@ class ActorModelRayActor(BasePPORole):
             strategy.print(f"Froze {frozen_count}/{total_params} parameters based on prefixes: {strategy.args.freeze_prefix}")
 
         # configure tokenizer
-        if args.train_vlm:
-            self.processor = get_vl_processor(
-                pretrain, actor.model, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
-            )
-            self.tokenizer = self.processor.tokenizer
-        else:
-            self.processor = None
-            self.tokenizer = get_tokenizer(
-                pretrain, actor.model, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
-            )
+        
+        self.data_processor = get_data_processor(
+            pretrain, actor.model, "left", strategy, use_fast=not strategy.args.disable_fast_tokenizer
+        )
+        self.tokenizer = self.data_processor.tokenizer
 
         if args.enable_ema:
             ema_model = Actor(
@@ -473,8 +469,7 @@ class ActorModelRayActor(BasePPORole):
             micro_rollout_batch_size=args.micro_rollout_batch_size,
             gradient_checkpointing=args.gradient_checkpointing,
             critic_train_remote=critic_train_remote,
-            tokenizer=self.tokenizer,
-            processor=self.processor, 
+            data_processor=self.data_processor,
             prompt_max_len=args.prompt_max_len,
             value_clip=args.value_clip,
             eps_clip=args.eps_clip,
@@ -517,6 +512,6 @@ class ActorModelRayActor(BasePPORole):
         # save model checkpoint after fitting on only rank0
         self.strategy.save_model(
             self.ema_model if args.enable_ema else self.actor,
-            self.processor or self.tokenizer,
+            self.data_processor.processor,
             args.save_path,
         )

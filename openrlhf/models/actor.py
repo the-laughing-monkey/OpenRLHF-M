@@ -12,7 +12,7 @@ from flash_attn.utils.distributed import all_gather
 
 from .ring_attn_utils import convert_ring_attn_params, set_hacked_position_ids, clear_hacked_position_ids
 from .utils import log_probs_from_logits, reset_position_ids
-from ..utils.utils import get_generation_cls
+from openrlhf.models.lmm_kits.utils import get_generation_cls
 
 
 class Actor(nn.Module):
@@ -205,26 +205,30 @@ class Actor(nn.Module):
             if v.dtype == torch.float32:
                 visual_inputs[k] = v.to(self.model.get_input_embeddings().weight.dtype)
         '''
+        inputs_embeds = self.model.get_inputs_embeds(sequences, **visual_inputs)
         if not self.packing_samples:
             # https://github.com/OpenRLHF/OpenRLHF/issues/217
-            position_ids = attention_mask.long().cumsum(-1) - 1
-            position_ids.masked_fill_(attention_mask == 0, 1)
+            #position_ids = attention_mask.long().cumsum(-1) - 1
+            #position_ids.masked_fill_(attention_mask == 0, 1)
+            position_ids = None
         else:
             # convert attention_mask to position_ids
+            packed_position_ids = self.model.get_position_ids(sequences, **visual_inputs)
             if ring_attn_group is not None:
                 labels = sequences
-                sequences, attention_mask, position_ids = convert_ring_attn_params(
-                    sequences, attention_mask, packed_seq_lens, ring_attn_group
+                sequences, attention_mask, hacked_position_ids, inputs_embeds, split_position_ids = convert_ring_attn_params(
+                    sequences, attention_mask, packed_seq_lens, ring_attn_group, inputs_embeds, packed_position_ids
                 )
+                position_ids = self.model.offset_split_position_ids(split_position_ids, hacked_position_ids) # this is true position_ids
+                #position_ids is directly hacked into flash_attn_forward to distinguish between different sequences
             else:
-                position_ids = reset_position_ids(attention_mask)
-            #position_ids is directly hacked into flash_attn_forward to distinguish between different sequences
-            set_hacked_position_ids(position_ids)
-            #To get correct position embedding, we just need to use the local position_ids because of the relativity of position embedding.
-            #position_ids = None #TODO: Use true position_ids only works for text-only data
+                hacked_position_ids = reset_position_ids(attention_mask)
+                position_ids = self.model.offset_split_position_ids(packed_position_ids, hacked_position_ids)
+
+            set_hacked_position_ids(hacked_position_ids)
             # explicitly ignore attention_mask for packing_samples
             attention_mask = None
-        output = self.model(sequences, attention_mask=attention_mask, position_ids=position_ids, **visual_inputs)
+        output = self.model(inputs_embeds=inputs_embeds, attention_mask=attention_mask, position_ids=position_ids, **visual_inputs)
         clear_hacked_position_ids()
         # https://github.com/OpenRLHF/OpenRLHF/pull/634
         output["logits"] = output["logits"].to(torch.float32)

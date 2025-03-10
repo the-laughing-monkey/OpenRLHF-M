@@ -2,7 +2,6 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import transformers
-from transformers import Qwen2_5_VLForConditionalGeneration
 
 
 RING_ATTN_GROUP = None
@@ -62,7 +61,7 @@ def update_ring_attn_params(packed_seq_lens, total_seq_len):
     update_ring_flash_attn_params(cu_seqlens, RING_ATTN_GROUP)
 
 
-def convert_ring_attn_params(sequences, attention_mask, packed_seq_lens, ring_attn_group):
+def convert_ring_attn_params(sequences, attention_mask, packed_seq_lens, ring_attn_group, inputs_embeds, position_ids):
     # each rank within the ring group will process sequences[start:end]
     ring_attn_rank = dist.get_rank(group=ring_attn_group)
     ring_attn_size = dist.get_world_size(group=ring_attn_group)
@@ -70,10 +69,13 @@ def convert_ring_attn_params(sequences, attention_mask, packed_seq_lens, ring_at
     local_seq_len = total_seq_len // ring_attn_size
     start, end = ring_attn_rank * local_seq_len, (ring_attn_rank + 1) * local_seq_len
     sequences = sequences[:, start:end]
+    inputs_embeds = inputs_embeds[:, start:end]
     attention_mask = attention_mask[:, start:end]
-    position_ids = reset_ring_attn_position_ids(start, end, packed_seq_lens)
+    position_ids = position_ids[..., start:end] #qwen2_5_vl has position_ids shape: [3,bs,seq_len]
+    hacked_position_ids = reset_ring_attn_position_ids(start, end, packed_seq_lens)
     update_ring_attn_params(packed_seq_lens, total_seq_len)
-    return sequences, attention_mask, position_ids
+    return sequences, attention_mask, hacked_position_ids, inputs_embeds, position_ids
+
 
 def pad_sequences(sequences, attention_mask, num_actions, packed_seq_lens, ring_attn_group, pad_token_id=0):
     # Pads the input sequences and attention mask to ensure that their lengths are multiples of the ring attention size.
@@ -131,23 +133,6 @@ def clear_hacked_position_ids():
     global HACKED_POSITION_IDS
     HACKED_POSITION_IDS = None
 
-raw_get_rope_index = Qwen2_5_VLForConditionalGeneration.get_rope_index
-def hacked_get_rope_index(*args, **kwargs):
+def get_hacked_position_ids():
     global HACKED_POSITION_IDS
-    position_ids, mrope_position_deltas = raw_get_rope_index(*args, **kwargs)
-    if HACKED_POSITION_IDS is None:
-        return position_ids, mrope_position_deltas
-    for i in range(HACKED_POSITION_IDS.size(0)):
-        seq_idxes = torch.nonzero(HACKED_POSITION_IDS[i]==0)[:,0]
-        seq_idxes = torch.cat([seq_idxes, torch.tensor([HACKED_POSITION_IDS.size(1)],device=seq_idxes.device)], dim=0)
-        st = 0
-        for seq_idx in seq_idxes:
-            if st == 0 and seq_idx == 0:
-                continue
-            #shape: [3,bs,seq_len]
-            raw_seq_position_ids = position_ids[:,i,st:seq_idx]
-            position_ids[:,i,st:seq_idx] = raw_seq_position_ids - raw_seq_position_ids[:,:1] + HACKED_POSITION_IDS[i,st]
-            st = seq_idx
-    return position_ids, mrope_position_deltas
-
-Qwen2_5_VLForConditionalGeneration.get_rope_index = hacked_get_rope_index
+    return HACKED_POSITION_IDS
