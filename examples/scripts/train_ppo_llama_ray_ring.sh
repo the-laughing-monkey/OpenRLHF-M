@@ -1,15 +1,7 @@
-export ROOT_PATH="/mnt/private_berlinni/zgr/project/lmm-r1-dev"
-export DATASET="$ROOT_PATH/data/deepscaler/deepscaler_chatml.jsonl"
-#export HF_ENDPOINT="https://hf-mirror.com"
-export WANDB_MODE="offline"
-export PYTHONPATH=$(pwd):$PYTHONPATH
-MODEL_CPK_NAME="test"
-PRETRAIN_MODEL="$ROOT_PATH/ckpts/Qwen2.5-Math-1.5B"
-SAVE_PATH="$ROOT_PATH/ckpts"
-mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
+set -x 
 
 ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "./"}' \
+   --runtime-env-json='{"working_dir": "/openrlhf"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 2 \
@@ -23,9 +15,9 @@ ray job submit --address="http://127.0.0.1:8265" \
    --vllm_tensor_parallel_size 2 \
    --colocate_critic_reward \
    --colocate_actor_ref \
-   --pretrain $PRETRAIN_MODEL\
-   --reward_pretrain $PRETRAIN_MODEL \
-   --save_path $SAVE_PATH \
+   --pretrain OpenRLHF/Llama-3-8b-sft-mixture \
+   --reward_pretrain OpenRLHF/Llama-3-8b-rm-mixture \
+   --save_path /openrlhf/examples/checkpoint/llama3-8b-rlhf \
    --micro_train_batch_size 16 \
    --train_batch_size 128 \
    --micro_rollout_batch_size 32 \
@@ -49,7 +41,8 @@ ray job submit --address="http://127.0.0.1:8265" \
    --gradient_checkpointing \
    --load_checkpoint \
    --ring_attn_size 2 \
-   --ring_head_stride 2
+   --ring_head_stride 2 \
+   --use_wandb {wandb_token}
 
 # --runtime-env-json='{"setup_commands": ["pip install openrlhf[vllm]"]}' [Install deps]
 # --ref_reward_offload [Offload to CPU]

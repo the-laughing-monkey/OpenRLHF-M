@@ -7,12 +7,14 @@ from typing import List, Optional, Tuple, Union, Dict
 
 import ray
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.distributed as dist
 import torch.nn.functional as F
 from tqdm import tqdm
 
 from openrlhf.models.actor import Actor
+from openrlhf.models.ring_attn_utils import pad_sequences, unpad_sequences
 from openrlhf.models.utils import compute_approx_kl, compute_reward, masked_mean, unpacking_samples
 from openrlhf.models.ring_attn_utils import pad_sequences, unpad_sequences
 from openrlhf.utils.logging_utils import init_logger
@@ -150,7 +152,7 @@ class NaiveExperienceMaker(ABC):
         prompt_max_len: int,
         kl_controller,
         strategy=None,
-        remote_rm_url: list[str] = None,
+        remote_rm_url: Union[list[str], str] = None,
         reward_fn=None,
     ) -> None:
         super().__init__()
@@ -171,6 +173,7 @@ class NaiveExperienceMaker(ABC):
         # custom reward func for reinforced finetuning
         self.custom_reward_func = None
         self.response_length_list = []
+        remote_rm_url = [remote_rm_url] if isinstance(remote_rm_url, str) else remote_rm_url
         if remote_rm_url and remote_rm_url[0].endswith(".py"):
             print(f"Loading custom `reward_func(queries, prompts, labels)` from {remote_rm_url[0]}")
             import importlib.util
@@ -193,6 +196,15 @@ class NaiveExperienceMaker(ABC):
         After that, we will calculate the advantages and returns for each experience.
         """
         args = self.strategy.args
+
+        # vLLM wakeup when vllm_enable_sleep
+        if self.strategy.args.vllm_enable_sleep:
+            from openrlhf.trainer.ray.vllm_engine import batch_vllm_engine_call
+
+            batch_vllm_engine_call(self.vllm_engines, "wake_up")
+            torch.distributed.barrier()
+            torch.cuda.synchronize()
+
         # generate responses
         if self.strategy.ring_attn_group is not None:
             # Only rank 0 in the ring attention group executes the generation function, and then broadcasts it to all other ranks.
@@ -201,11 +213,21 @@ class NaiveExperienceMaker(ABC):
                 dist.broadcast_object_list(samples_list, src=dist.get_rank(), group=self.strategy.ring_attn_group)
             else:
                 world_size = torch.distributed.get_world_size() // args.ring_attn_size
-                samples_list = [None] * (args.n_samples_per_prompt * args.rollout_batch_size // world_size // args.micro_rollout_batch_size)
-                dist.broadcast_object_list(samples_list, src=self.strategy.ring_attn_ranks[0], group=self.strategy.ring_attn_group)
+                samples_list = [None] * (
+                    args.rollout_batch_size * args.n_samples_per_prompt // world_size // args.micro_rollout_batch_size
+                )
+                dist.broadcast_object_list(
+                    samples_list, src=self.strategy.ring_attn_ranks[0], group=self.strategy.ring_attn_group
+                )
         else:
             samples_list = self.generate_samples(all_prompts, all_labels, **generate_kwargs)
+
+        # vLLM offload when vllm_enable_sleep
+        if self.strategy.args.vllm_enable_sleep:
+            batch_vllm_engine_call(self.vllm_engines, "sleep")
+
         torch.distributed.barrier()
+        torch.cuda.synchronize()
 
         experiences = []
         for samples in tqdm(
@@ -300,6 +322,7 @@ class NaiveExperienceMaker(ABC):
                 prompts=prompts,
                 visual_inputs=visual_inputs,
                 labels=labels,
+                pad_len=None,
             )
             samples_list.append(samples)
         return samples_list
@@ -360,7 +383,7 @@ class NaiveExperienceMaker(ABC):
                 action_log_probs,
                 base_action_log_probs,
                 action_mask=action_mask,
-                use_kl_estimator_k3=self.strategy.args.use_kl_estimator_k3,
+                kl_estimator=self.strategy.args.kl_estimator,
             )
         else:
             kl = torch.zeros_like(action_log_probs, dtype=action_log_probs.dtype, device=action_log_probs.device)
@@ -575,14 +598,6 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
 
         # vLLM generation
         samples = self._generate_vllm(all_prompts, all_labels, **generate_kwargs)
-
-        # vLLM offload when colocate_all_models
-        if self.strategy.args.vllm_enable_sleep:
-            if torch.distributed.get_rank() == 0:
-                refs = []
-                for engine in self.vllm_engines:
-                    refs.append(engine.sleep.remote())
-                ray.get(refs)
         return samples
 
     @torch.no_grad()
@@ -644,7 +659,11 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         # support remote RM API with ray
         if not self.remote_rm_url:
             for rm in self.reward_model:
-                r_refs.append(rm.forward.remote(sequences_cpu, attention_mask_cpu, packed_seq_lens=packed_seq_lens, pad_sequence=True, visual_inputs=visual_inputs_cpu))
+                r_refs.append(
+                    rm.forward.remote(
+                        sequences_cpu, attention_mask_cpu, packed_seq_lens=packed_seq_lens, pad_sequence=True, visual_inputs=visual_inputs_cpu
+                    )
+                )
         else:
             # remote RM
             if not self.packing_samples:
@@ -715,7 +734,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 action_log_probs,
                 base_action_log_probs,
                 action_mask=action_mask,
-                use_kl_estimator_k3=args.use_kl_estimator_k3,
+                kl_estimator=self.strategy.args.kl_estimator,
             )
         else:
             kl = torch.zeros_like(action_log_probs, dtype=action_log_probs.dtype, device=device)
@@ -734,7 +753,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                     ring_attn_group=self.strategy.ring_attn_group,
                     action_log_probs=action_log_probs,
                     values=value,
-                    kl=kl
+                    kl=kl,
                 )
             # convert tensor into list of tensors so that it's easier to manipulate
             # within dataset.
@@ -838,6 +857,8 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         # Make sure all requests are sent.
         if self.strategy.ring_attn_group is None:
             torch.distributed.barrier()
+        else:
+            time.sleep(3)
 
         # Retrieve and combine results from all outputs
         all_output_refs = []
@@ -902,7 +923,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         prompts=prompts,
                         visual_inputs=visual_inputs,
                         labels=labels,
-                        pad_len=None
+                        pad_len=None,
                     )
                 )
             else:
@@ -935,7 +956,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         num_actions=num_actions,
                         packed_seq_lens=packed_seq_lens,
                         ring_attn_group=self.strategy.ring_attn_group,
-                        pad_token_id=pad_token_id
+                        pad_token_id=pad_token_id,
                     )
 
                 sequences = torch.tensor(sequences, device="cuda").unsqueeze(0)
@@ -961,7 +982,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         prompts=prompts,
                         visual_inputs=visual_inputs,
                         labels=labels,
-                        pad_len=pad_len
+                        pad_len=pad_len,
                     )
                 )
         return samples_list
