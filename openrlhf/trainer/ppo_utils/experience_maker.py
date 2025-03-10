@@ -172,7 +172,6 @@ class NaiveExperienceMaker(ABC):
 
         # custom reward func for reinforced finetuning
         self.custom_reward_func = None
-        self.response_length_list = []
         remote_rm_url = [remote_rm_url] if isinstance(remote_rm_url, str) else remote_rm_url
         if remote_rm_url and remote_rm_url[0].endswith(".py"):
             print(f"Loading custom `reward_func(queries, prompts, labels)` from {remote_rm_url[0]}")
@@ -290,7 +289,6 @@ class NaiveExperienceMaker(ABC):
         """
         Generate samples and return in batches.
         """
-        self.response_length_list = []
         assert not getattr(self, "packing_samples", False)
         args = self.strategy.args
         self.actor.eval()
@@ -310,7 +308,6 @@ class NaiveExperienceMaker(ABC):
 
             labels = all_labels[i : i + args.micro_rollout_batch_size]
             sequences, attention_mask, action_mask = self.actor.generate(**inputs, **generate_kwargs)
-            self.response_length_list.extend(attention_mask.float().sum(dim=-1).tolist())
             samples = Samples(
                 sequences=sequences,
                 attention_mask=attention_mask,
@@ -803,7 +800,6 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
 
     def _generate_vllm(self, all_prompts: List[str], all_labels, **kwargs) -> List[Samples]:
         from vllm import SamplingParams
-        self.response_length_list = []
         # round-robin load balance
         rank = torch.distributed.get_rank() // self.strategy.ring_attn_size
         world_size = torch.distributed.get_world_size() // self.strategy.ring_attn_size
@@ -910,7 +906,6 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 visual_inputs.pop("input_ids")
                 visual_inputs.pop("attention_mask")
                 visual_inputs = {k: v.to("cuda") for k, v in visual_inputs.items()}
-                self.response_length_list.extend(attention_mask.float().sum(dim=-1).tolist())
                 samples_list.append(
                     Samples(
                         sequences=sequences,
@@ -963,7 +958,6 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                 attention_mask = torch.tensor(attention_mask, device="cuda").unsqueeze(0)
                 action_mask = None
                 response_length = torch.tensor(num_actions, device="cuda", dtype=torch.float)
-                self.response_length_list.extend(num_actions)
                 total_length = torch.tensor(packed_seq_lens, device="cuda", dtype=torch.float)
                 # Collect for visual input
                 visual_inputs = self.data_processor(prompts, self.prompt_max_len, device="cuda")
