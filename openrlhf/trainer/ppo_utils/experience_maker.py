@@ -848,7 +848,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         },
                     } for p, imgs in zip(prompts,images)]
                 refs.append(
-                    llm.add_requests_vlm.remote(rank, sampling_params=sampling_params, vllm_vision_input=vllm_inputs)
+                    llm.add_requests.remote(rank, sampling_params=sampling_params, vllm_vision_input=vllm_inputs)
                 )
 
 

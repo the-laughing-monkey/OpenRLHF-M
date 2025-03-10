@@ -73,36 +73,7 @@ class LLMRayActor:
     def wake_up(self):
         self.llm.wake_up()
 
-    def add_requests(self, actor_rank, *, sampling_params, prompt_token_ids):
-        """
-        Save the requests from actors and generate responses when all actors have sent their requests
-        """
-        self.requests[actor_rank] = prompt_token_ids
-        self.actor_counter += 1
-        if self.actor_counter == self.num_actors:
-            assert len(self.requests) == self.num_actors
-            num_requests = []
-            requests = []
-            for actor_rank, request in self.requests.items():
-                num_requests.append((actor_rank, len(request)))
-                requests.extend(request)
-
-            if len(requests) > 0:
-                # For now we assume that all requests have the same sampling params
-                responses = self.llm.generate(sampling_params=sampling_params, prompt_token_ids=requests)
-            else:
-                responses = []
-
-            offset = 0
-            self.responses = {}
-            for actor_rank, num in num_requests:
-                self.response_queues[actor_rank].put(responses[offset : offset + num])
-                offset += num
-
-            self.actor_counter = 0
-            self.requests = {}
-
-    def add_requests_vlm(self, actor_rank, *, sampling_params, vllm_vision_input):
+    def add_requests(self, actor_rank, *, sampling_params, vllm_vision_input):
         """
         Save the requests from actors and generate responses when all actors have sent their requests
         """
@@ -125,7 +96,7 @@ class LLMRayActor:
             offset = 0
             self.responses = {}
             for actor_rank, num in num_requests:
-                self.responses[actor_rank] = responses[offset : offset + num]
+                self.response_queues[actor_rank].put(responses[offset : offset + num])
                 offset += num
 
             self.actor_counter = 0
