@@ -186,9 +186,12 @@ c. Make sure to match the number of nodes and GPUs on your pod:
 ```bash
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 2 \
+   --reward_num_nodes 1 \
+   --reward_num_gpus_per_node 2 \
+   --actor_num_nodes 1 \
    --actor_num_gpus_per_node 2 \
-   --vllm_num_engines 2 \
-   --vllm_tensor_parallel_size 1 \
+   --vllm_num_engines 1 \
+   --vllm_tensor_parallel_size 2 \
 ```
 
 d. Set your dataset path to your actual dataset path:
