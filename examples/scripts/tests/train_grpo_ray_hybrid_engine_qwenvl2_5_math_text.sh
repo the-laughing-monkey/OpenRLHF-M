@@ -11,7 +11,7 @@ mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
 python3 -m openrlhf.models.remote_rm.math_verifier \
     --dataset $DATASET \
     --input_key problem \
-    --input_template "{\"role\": \"user\", \"content\": \"Question: {}\\nAnswer:\"}" \
+    --input_template '{"role": "user", "content": "Question: {}\nAnswer:"}' \
     > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
 childpid=$!
 
@@ -61,7 +61,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --advantage_estimator group_norm \
    --prompt_data $DATASET \
    --input_key problem \
-   --input_template "{\"role\": \"user\", \"content\": \"Question: {}\\nAnswer:\"}" \
+   --input_template '{"role": "user", "content": "Question: {}\nAnswer:"}' \
    --normalize_reward \
    --flash_attn \
    --gradient_checkpointing \
