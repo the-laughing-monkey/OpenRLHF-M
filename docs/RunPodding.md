@@ -1,7 +1,7 @@
-# Running LMM-R1 on RunPod: The Ultimate Carrot (or Stick) Deployment Guide
+# Running OpenRLHF-M on RunPod: The Ultimate Deployment Guide
 
-Welcome to the LMM-R1 RunPodding guide!  
-Here, we show you how to unleash LMM-R1 on a RunPod instance. Whether you're giving gentle nudges or firm corrections (carrot or stick, as they say), this guide will get you set up with a system that boasts 1000GB storage and the best distributed training practices in town.
+Welcome to the OpenRLHF-M RunPodding guide!  
+Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're working on language model alignment or multimodal reinforcement learning, this guide will get you set up with a system that boasts 1000GB storage and the best distributed training practices in town.
 
 ---
 
@@ -10,7 +10,7 @@ Here, we show you how to unleash LMM-R1 on a RunPod instance. Whether you're giv
 - A RunPod account with sufficient credits
 - Basic familiarity with Linux commands and SSH
 - An SSH client on your local machine  
-- Patience—and maybe a snack (a carrot, naturally!)
+- Patience—and maybe a snack!
 - When using Ray for distributed training, **ensure that port 6379 is open** on the Ray head node for worker join and **port 8265 is open** for job submission and dashboard access. These ports are used for:
   - **Worker Join:** The head node listens on `http://<HEAD_NODE_IP>:6379` for worker nodes connecting to the cluster.
   - **Job Submission & Dashboard:** The head node listens on `http://<HEAD_NODE_IP>:8265` for job submissions and dashboard communications.
@@ -68,15 +68,15 @@ Here, we show you how to unleash LMM-R1 on a RunPod instance. Whether you're giv
 2. Create a virtual environment in your data directory:
 ```bash
    cd /data
-   python3 -m venv lmm-r1-env
-   source lmm-r1-env/bin/activate
+   python3 -m venv openrlhf-env
+   source openrlhf-env/bin/activate
    
 ```
 
-3. Clone the Carrot RL repository (if not already done) and Install:
+3. Clone the OpenRLHF-M repository and install:
 ```bash
-   git clone https://github.com/yourusername/lmm-r1.git
-   cd lmm-r1
+   git clone https://github.com/OpenRLHF/OpenRLHF-M.git
+   cd OpenRLHF-M
    pip install -e .[vllm]
 ```
 
@@ -114,9 +114,9 @@ This step is optional but recommended for more integrated experiment monitoring.
 
 ---
 
-### 8. Run Your First LMM R1 Training Job
+### 8. Run Your First OpenRLHF-M Training Job
 
-Now you're ready to launch a training job. For example, to train a Qwen2.5‑VL‑3B model:
+Now you're ready to launch a training job. For example, to train a Qwen2.5‑VL‑3B model with RLOO (Reinforcement Learning with Off-policy Updates):
 
 1. First edit the script:
 
@@ -130,7 +130,7 @@ b. To this so you can use the model from HuggingFace:
    PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
 ```
 
-c. d. And make sure to match the number of nodes and GPUs on your pod:
+c. Make sure to match the number of nodes and GPUs on your pod:
 ```bash
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 2 \
@@ -139,25 +139,25 @@ c. d. And make sure to match the number of nodes and GPUs on your pod:
    --vllm_tensor_parallel_size 1 \
 ```
 
-e. Set your dataset path to your actual dataset path:
+d. Set your dataset path to your actual dataset path:
 ```bash
    export DATASET="hiyouga/math12k"
 ```
 
-f. Change the GPU number in Ray to match your pod:
+e. Change the GPU number in Ray to match your pod:
 ```bash
    ray start --head --node-ip-address 0.0.0.0 --num-gpus 8 --temp-dir ~/.cache/ray
 ```
 
-g. Finally set your working directory to your actual working directory:
+f. Finally set your working directory to your actual working directory:
 ```bash
-   --runtime-env-json='{"working_dir": "/data/lmm-r1"}' \
+   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
 ```
 
 
 Now run the script:
 ```bash
-   bash examples/scripts/r1_scripts/train_rloo_qwenvl2_5_math.sh
+   bash examples/scripts/train_rloo_qwenvl2_5_math.sh
 ```
 
 ### 9. Monitoring NVIDIA GPU Memory
@@ -240,7 +240,7 @@ In addition to monitoring GPUs and storage, you can set up Prometheus and Grafan
    Visit the [Prometheus Downloads page](https://prometheus.io/download/) and download the appropriate binary for your operating system.
 
 2. **Configure Prometheus:**  
-   Create a file named `prometheus.yml` with the following content. This configuration instructs Prometheus to scrape Ray’s metrics from the service discovery file:
+   Create a file named `prometheus.yml` with the following content. This configuration instructs Prometheus to scrape Ray's metrics from the service discovery file:
    ```yaml
    global:
      scrape_interval:     2s
@@ -320,9 +320,9 @@ childpid=$!
 # Start Ray on the head node with 2 GPUs and export metrics on port 8080.
 ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir ~/.cache/ray
 
-# Submit the job using a runtime working directory of /data/lmm-r1.
+# Submit the job using a runtime working directory of /data/OpenRLHF-M.
 ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/data/lmm-r1"}' \
+   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 2 \
@@ -400,7 +400,7 @@ childpid=$!
 ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir ~/.cache/ray
 
 ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/data/lmm-r1"}' \
+   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 2 \
@@ -460,6 +460,6 @@ With these updates, your Ray cluster will export metrics on port 8080, which you
 
 ## Final Thoughts
 
-Whether you're motivated by rewards (carrots) or trials (sticks), this guide ensures you have all the tools to deploy LMM-R1 on RunPod. Special thanks to the communities behind EasyR1 and OpenRLHF for their contributions—because sharing knowledge makes everyone better.
+This guide ensures you have all the tools to deploy OpenRLHF-M on RunPod. OpenRLHF-M's architecture enables efficient distributed training of large language and multimodal models using various reinforcement learning techniques.
 
 Happy RunPodding, and may your training sessions be as rewarding as they are fun!
