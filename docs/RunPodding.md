@@ -116,8 +116,18 @@ echo 'export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
 nvcc --version
 ```
 
+6. Clone the OpenRLHF-M repository and install with proper CUDA detection:
+```bash
+# Clone the repository
+git clone https://github.com/OpenRLHF/OpenRLHF-M.git
+cd OpenRLHF-M
 
-### 6. (Optional) Set Your WandB API Key
+# This will install all dependencies with the CUDA 12.1 toolkit
+# The build process will be much faster than with CUDA 11.8
+pip install openrlhf[vllm_latest]
+```
+
+### 7. (Optional) Set Your WandB API Key
 
 If you wish to use Weights & Biases (wandb) for experiment tracking, consider setting your API key:
 1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
