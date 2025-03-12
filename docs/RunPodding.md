@@ -193,7 +193,7 @@ c. Make sure to match the number of nodes and GPUs on your pod:
 
 d. Set your dataset path to your actual dataset path:
 ```bash
-   export DATASET="hiyouga/math12k"
+   export DATASET="open-r1/OpenR1-Math-220k"
 ```
 
 e. Change the GPU number in Ray to match your pod:
@@ -209,7 +209,7 @@ f. Finally set your working directory to your actual working directory:
 
 Now run the script:
 ```bash
-   bash examples/scripts/train_rloo_qwenvl2_5_math.sh
+   bash examples/scripts/tests/train_grpo_ray_hybrid_engine_qwenvl2_5_math_text.sh
 ```
 
 ### 10. Monitoring NVIDIA GPU Memory
