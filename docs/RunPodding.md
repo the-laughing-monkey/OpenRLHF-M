@@ -69,8 +69,7 @@ Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're
 ```bash
    cd /data
    python3 -m venv openrlhf-env
-   source openrlhf-env/bin/activate
-   
+   source openrlhf-env/bin/activate  
 ```
 
 3. Clone the OpenRLHF-M repository and install:

@@ -94,25 +94,86 @@ OpenRLHF-M supports a comprehensive set of reinforcement learning methods for LL
 
 ## Multimodal Support
 
-OpenRLHF-M extends RLHF techniques to multimodal models through its `lmm_kits` module:
+OpenRLHF-M extends RLHF techniques to multimodal models through its `lmm_kits` (Language-Multimodal Kits) module, providing an abstracted architecture for handling different types of vision-language models:
 
-1. **Qwen2.5-VL Support**:
-   - `data_processor.py` - Handles multimodal data processing for Qwen2.5-VL
-   - `patch.py` - Contains patches to make the model compatible with the framework
+### Architecture for Multimodal Support
 
-2. **Base Multimodal Support**:
-   - Common abstractions and utilities for multimodal models
-   - Can be extended to support other multimodal models
+1. **Abstracted Base Classes**:
+   - `BaseDataProcessor`: An abstract base class that defines the interface for processing multimodal data
+   - `BasePatch`: Provides a foundation for model-specific patches that extend model functionality
 
-3. **Integration with Vision-Language Models**:
-   - Processes images and video inputs alongside text
-   - Uses `qwen_vl_utils` for handling vision information
-   - Supports chat templates and multimodal contexts
+2. **Model-Specific Implementations**:
+   - Dedicated modules for each supported model (e.g., `qwen2_5_vl`) that implement the base interfaces
+   - Each model module contains:
+     - `data_processor.py`: Handles model-specific multimodal data processing
+     - `patch.py`: Contains model-specific patches for embedding and position handling
 
-4. **Training Flow for Multimodal Models**:
-   - Custom data processors handle the complexity of multimodal inputs
-   - Multimodal batching and tensor preparation
-   - Integration with standard RLHF training loops
+3. **Key Multimodal Processing Features**:
+   - **Unified Input Format**: Processes text along with images and videos using consistent abstractions
+   - **Vision Information Extraction**: Uses `process_vision_info` to extract image and video inputs from messages
+   - **Pixel Bound Management**: Handles image resolution limits with min/max pixel settings
+   - **Chat Template Integration**: Seamlessly works with model-specific chat templates
+
+4. **Qwen2.5-VL Integration**:
+   The implementation for Qwen2.5-VL showcases the framework's multimodal capabilities:
+   
+   - **Custom Data Processor**: `Qwen2_5_VLDataProcessor` handles the specific requirements of Qwen2.5-VL
+     - Processes both text and vision inputs (images and videos)
+     - Manages batching and tensor preparation specifically for multimodal inputs
+     - Handles the complex task of splitting batches with mixed vision and text content
+   
+   - **Model Patching**: `Qwen2_5_VLPatch` extends the model with functions needed for RLHF:
+     - `get_inputs_embeds`: Manages embedding of text tokens and substitution with visual embeddings
+     - `get_position_ids`: Handles position encoding for mixed text-image sequences
+     - `offset_split_position_ids`: Manages position IDs across packed sequences with visual content
+
+5. **Integration with Actor Model**:
+   - The `Actor` class accepts `visual_inputs` in its forward method
+   - Visual inputs are processed alongside text inputs to generate appropriate embeddings
+   - Special handling for positional encodings in multimodal sequences
+
+### Multimodal Data Flow
+
+The data flow for multimodal models in OpenRLHF-M follows these steps:
+
+1. **Data Preparation**:
+   - Messages containing text and image/video references are processed
+   - Images and videos are extracted and prepared for model input
+
+2. **Tokenization and Embedding**:
+   - Text is tokenized using model-specific tokenizers
+   - Special tokens mark positions for visual content (e.g., `<|vision_start|>` and `<|vision_end|>`)
+   - Visual content is processed through the model's vision encoder
+
+3. **Mixed-Modal Processing**:
+   - Visual embeddings replace corresponding special tokens in the text embedding sequence
+   - Position IDs are adjusted to account for visual tokens
+   - Attention masks are modified to handle the combined text-visual sequence
+
+4. **Training with RLHF**:
+   - The standard RLHF pipeline (SFT, reward model, RL optimization) is applied to this mixed-modal representation
+   - Gradient updates affect both the language and vision components of the model
+
+### Technical Requirements for Multimodal Support
+
+- **Specific Dependencies**:
+  - `qwen_vl_utils`: Provides utilities for handling Qwen VL models
+  - `torchvision`: Necessary for image processing
+  - Specific version of `transformers` (from a GitHub commit) that supports the multimodal models
+
+- **Hardware Considerations**:
+  - Higher GPU memory requirements due to vision processing components
+  - Benefits from GPUs with larger VRAM for handling high-resolution images
+
+### Supported Multimodal Models
+
+Currently, OpenRLHF-M has a complete implementation for:
+- **Qwen2.5-VL**: A powerful vision-language model that can process both images and videos
+
+The abstracted architecture allows for easy extension to other multimodal models by:
+1. Creating a new model-specific directory in `lmm_kits/`
+2. Implementing the required `data_processor.py` and `patch.py` files
+3. Adding any necessary model-specific utilities
 
 ## Key Requirements
 
@@ -253,4 +314,4 @@ The framework includes several optimization techniques:
 
 ## Conclusion
 
-OpenRLHF-M represents a comprehensive framework for applying RLHF techniques to both language and multimodal models. Its modular design, support for various RL algorithms, and distributed training capabilities make it suitable for both research and production applications. The integration of multimodal support extends these capabilities to the next generation of AI models that combine language understanding with visual perception.
+OpenRLHF-M represents a comprehensive framework for applying RLHF techniques to both language and multimodal models. Its modular design, support for various RL algorithms, and distributed training capabilities make it suitable for both research and production applications. The integration of multimodal support extends these capabilities to the next generation of AI models that combine language understanding with visual perception, enabling RLHF training of vision-language models like Qwen2.5-VL with the same robust techniques used for text-only models.
