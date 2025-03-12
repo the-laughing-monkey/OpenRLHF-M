@@ -2,8 +2,8 @@
 # Use the OpenR1-Math-220k dataset for text-based math evaluation with Qwen2.5‑VL–3B model (default config)
 export DATASET="open-r1/OpenR1-Math-220k"
 
-MODEL_CPK_NAME="qwenvl25_3B_ins_grpo_math"
-PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
+MODEL_CPK_NAME="qwen25_3B_ins_grpo_math"
+PRETRAIN_MODEL="Qwen/Qwen2.5-3B-VL-Instruct"
 SAVE_PATH="./ckpts"
 mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
 
@@ -11,7 +11,7 @@ mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
 python3 -m openrlhf.models.remote_rm.math_verifier \
     --dataset $DATASET \
     --input_key problem \
-    --input_template '{"role": "user", "content": "Question: {}\nAnswer:"}' \
+    --input_template "Question: {}\nAnswer:" \
     > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
 childpid=$!
 
@@ -61,7 +61,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --advantage_estimator group_norm \
    --prompt_data $DATASET \
    --input_key problem \
-   --input_template '{"role": "user", "content": "Question: {}\nAnswer:"}' \
+   --input_template "Question: {}\nAnswer:" \
    --normalize_reward \
    --flash_attn \
    --gradient_checkpointing \
