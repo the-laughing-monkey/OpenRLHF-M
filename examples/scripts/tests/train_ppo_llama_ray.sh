@@ -1,7 +1,7 @@
 set -x 
 
 # Start Ray on the head node with 2 GPUs.
-ray start --head --num-gpus 2 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address=0.0.0.0 --num-gpus 2
 
 ray job submit --address="http://127.0.0.1:8265" \
    --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \

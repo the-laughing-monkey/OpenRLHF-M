@@ -19,7 +19,7 @@ python3 -m openrlhf.models.remote_rm.math_verifier \
 childpid=$!
 
 # Start Ray on the head node with 2 GPUs.
-ray start --head --num-gpus 2 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address=0.0.0.0 --num-gpus 2
 
 # Submit the job using a runtime working directory of /data/lmm-r1 
 ray job submit --address="http://127.0.0.1:8265" \
