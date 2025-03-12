@@ -3,7 +3,7 @@ set -x
 # reinforce++
 
 ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/openrlhf"}' \
+   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 1 \
@@ -20,7 +20,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --train_batch_size 128 \
    --micro_rollout_batch_size 32 \
    --rollout_batch_size 1024 \
-   --n_samples_per_prompt 1 \
+   --n_samples_per_prompt 7 \
    --max_epochs 1 \
    --prompt_max_len 1024 \
    --max_samples 100000 \

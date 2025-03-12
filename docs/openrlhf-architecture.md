@@ -132,6 +132,116 @@ OpenRLHF-M extends RLHF techniques to multimodal models through its `lmm_kits` (
    - Visual inputs are processed alongside text inputs to generate appropriate embeddings
    - Special handling for positional encodings in multimodal sequences
 
+### Multimodal Data Format and Processing
+
+1. **Data Format Requirements**:
+   - Multimodal data must follow a specific messaging format that enables the model to distinguish between text and visual content
+   - Messages are structured as JSON objects in a conversation format:
+   ```json
+   [
+     {
+       "role": "user",
+       "content": [
+         {"type": "text", "text": "What's in this image?"},
+         {
+           "type": "image",
+           "image_url": {"url": "path/to/image.jpg"},
+           "min_pixels": 4*28*28,  // Optional image resolution parameters
+           "max_pixels": 640*28*28 // Default values are provided if not specified
+         }
+       ]
+     },
+     {
+       "role": "assistant",
+       "content": "The image shows a mountain landscape."
+     }
+   ]
+   ```
+   - This format supports both simple text messages and messages with mixed content (text, images, videos)
+   - Images can be referenced via URLs or local file paths
+
+2. **Data Preparation Pipeline**:
+   - Messages are first formatted through the `_format_messages` method in `BaseDataProcessor`
+   - The `_add_pixel_bounds` method ensures all visual content has appropriate resolution constraints
+   - The `apply_chat_template` method applies model-specific chat templates before tokenization
+   - The `get_images_from_messages` method extracts and prepares visual content for processing
+
+3. **Tokenization Process for Multimodal Content**:
+   - Special tokens like `<|vision_start|>` and `<|vision_end|>` mark positions for visual content in the token sequence
+   - These markers act as placeholders for the visual embeddings that will replace them
+   - The number of special tokens must match the number of visual features processed
+
+4. **Batch Processing**:
+   - The `make_input_batch` method combines individual inputs into a batched format for efficient processing
+   - For text tokens, standard stacking is used (`torch.stack`)
+   - For visual content, pixels are concatenated in the first dimension (`torch.cat`)
+   - The `split_input_batch` method reverses this process, carefully tracking image locations
+
+### Command Line Configuration for Multimodal Training
+
+To enable multimodal training, several command-line arguments must be configured:
+
+1. **Basic Multimodal Parameters**:
+   - The model must be a supported multimodal model (currently Qwen2.5-VL)
+   - Required dependencies must be installed (e.g., `qwen_vl_utils`, `torchvision`)
+
+2. **Resolution Control**:
+   - `--min_pixels`: Sets the minimum pixel count for images (default: 4*28*28)
+   - `--max_pixels`: Sets the maximum pixel count for images (default: 640*28*28)
+
+3. **Data Formatting**:
+   - `--apply_chat_template`: Must be enabled to properly process multimodal messages
+   - `--input_key`: Specifies the JSON field containing the message content (default: "input")
+
+4. **Example Command for Multimodal SFT**:
+   ```bash
+   deepspeed --module openrlhf.cli.train_sft \
+     --pretrain Qwen/Qwen2.5-VL \
+     --dataset multimodal_dataset \
+     --input_key messages \
+     --apply_chat_template \
+     --min_pixels 3136 \
+     --max_pixels 503808 \
+     --bf16 \
+     --flash_attn
+   ```
+
+5. **For Multimodal PPO with Ray**:
+   ```bash
+   ray job submit --address="http://127.0.0.1:8265" \
+     --runtime-env-json='{"working_dir": "/path/to/OpenRLHF-M"}' \
+     -- python3 -m openrlhf.cli.train_ppo_ray \
+     --pretrain Qwen/Qwen2.5-VL \
+     --reward_pretrain reward_model_path \
+     --apply_chat_template \
+     --min_pixels 3136 \
+     --max_pixels 503808 \
+     --prompt_data vision_prompts_dataset \
+     --input_key context_messages
+   ```
+
+### Integration with vLLM for Inference
+
+For multimodal inference in vLLM-accelerated training:
+
+1. **vLLM Input Format**:
+   ```python
+   vllm_inputs = [{
+     "prompt": prompt_text,
+     "multi_modal_data": {"image": image_list} if image_list else None,
+     "mm_processor_kwargs": {
+       "min_pixels": min_pixels_value,
+       "max_pixels": max_pixels_value,
+     },
+   }]
+   ```
+
+2. **Experience Generation**:
+   - The `RemoteExperienceMaker._generate_vllm` method processes multimodal inputs
+   - Images are extracted from messages using `get_images_from_messages`
+   - Chat templates are applied with `apply_chat_template`
+   - The resulting prompts and images are formatted for vLLM inference
+
 ### Multimodal Data Flow
 
 The data flow for multimodal models in OpenRLHF-M follows these steps:
