@@ -1,6 +1,6 @@
 #!/bin/bash
-# Use the GSM8K dataset for text-based math evaluation with Qwen2.5‑VL–3B model
-export DATASET="openai/gsm8k"
+# Use the OpenR1-Math-220k dataset for text-based math evaluation with Qwen2.5‑VL–3B model (default config)
+export DATASET="open-r1/OpenR1-Math-220k:default"
 
 MODEL_CPK_NAME="qwenvl25_3B_ins_grpo_math"
 PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"

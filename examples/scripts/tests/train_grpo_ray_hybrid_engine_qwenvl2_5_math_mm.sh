@@ -50,7 +50,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --n_samples_per_prompt 16 \
    --max_epochs 1 \
    --num_episodes 30 \
-   --prompt_max_len 1024 \
+   --prompt_max_len 32768 \
    --max_samples 100000 \
    --generate_max_len 1024 \
    --zero_stage 3 \
