@@ -1,3 +1,6 @@
+set -x
+
+# Use the math12k dataset
 export DATASET="hiyouga/math12k"
 
 MODEL_CPK_NAME="qwenvl25_3B_ins_rloo_math"
@@ -5,21 +8,38 @@ PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
 SAVE_PATH="./ckpts"
 mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
 
-python3 -m openrlhf.models.remote_rm.math_verifier --dataset $DATASET --input_key problem --prompt-template "Question: {}\nAnswer:" > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
+# Start the remote reward verifier with explicit port and wait to ensure it's running
+python3 -m openrlhf.models.remote_rm.math_verifier \
+    --dataset $DATASET \
+    --input_key problem \
+    --prompt-template "Question: {}\nAnswer:" \
+    --port 5000 > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
 childpid=$!
 
+# Wait for the reward model server to start
+echo "Waiting for reward model server to start..."
+sleep 10
+
+# Check if reward model is running
+if ! curl -s http://127.0.0.1:5000 > /dev/null; then
+    echo "Warning: Reward model server doesn't seem to be running. Check logs at ${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log"
+    # Continue anyway, but print warning
+fi
+
+# Start Ray with 2 GPUs
 ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --temp-dir ~/.cache/ray
 
+# Submit job with correct working directory
 ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/data/lmm-r1"}' \
+   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
-   --ref_num_gpus_per_node 2 \
+   --ref_num_gpus_per_node 1 \
    --remote_rm_url http://127.0.0.1:5000/get_reward \
    --actor_num_nodes 1 \
-   --actor_num_gpus_per_node 2 \
+   --actor_num_gpus_per_node 1 \
    --vllm_num_engines 1 \
-   --vllm_tensor_parallel_size 2 \
+   --vllm_tensor_parallel_size 1 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_gpu_memory_utilization 0.5 \
@@ -54,5 +74,4 @@ ray job submit --address="http://127.0.0.1:8265" \
    --save_hf_ckpt \
    --use_tensorboard $SAVE_PATH/$MODEL_CPK_NAME/logs
 
-# also supports --advantage_estimator rloo
 ray stop
