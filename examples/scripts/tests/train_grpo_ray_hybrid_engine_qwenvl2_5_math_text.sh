@@ -1,6 +1,6 @@
 #!/bin/bash
-# Use the math12k dataset from HF and the Qwen2.5‑VL–3B model with a formatted prompt.
-export DATASET="hiyouga/math12k"
+# Use the GSM8K dataset for text-based math evaluation with Qwen2.5‑VL–3B model
+export DATASET="openai/gsm8k"
 
 MODEL_CPK_NAME="qwenvl25_3B_ins_grpo_math"
 PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
@@ -11,12 +11,12 @@ mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
 python3 -m openrlhf.models.remote_rm.math_verifier \
     --dataset $DATASET \
     --input_key problem \
-    --prompt-template "Question: {}\nAnswer:" \
+    --input_template "Question: {}\nAnswer:" \
     > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
 childpid=$!
 
 # Start Ray on the head node with 2 GPUs.
- --num-gpus 2 --temp-dir ~/.cache/ray
+ray start --head --num-gpus 2 --temp-dir ~/.cache/ray
 
 # Submit the job using a runtime working directory of /data/lmm-r1 
 ray job submit --address="http://127.0.0.1:8265" \
