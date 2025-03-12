@@ -116,55 +116,6 @@ echo 'export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
 nvcc --version
 ```
 
-5. Install a compatible PyTorch version for CUDA 12:
-```bash
-# For CUDA 12.1
-pip install --force-reinstall --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
-6. Clone the OpenRLHF-M repository and install with proper CUDA detection:
-```bash
-# Clone the repository
-git clone https://github.com/OpenRLHF/OpenRLHF-M.git
-cd OpenRLHF-M
-
-# This will install all dependencies with the CUDA 12.1 toolkit
-# The build process will be much faster than with CUDA 11.8
-pip install openrlhf[vllm_latest]
-```
-
-### Alternative: If you prefer not to install CUDA 12 toolkit
-
-If you cannot install CUDA 12 toolkit or prefer to use the existing CUDA 11.8:
-
-```bash
-# Use the existing CUDA 11.8 installation
-export CUDA_HOME=/usr/local/cuda-11.8
-export PATH=$CUDA_HOME/bin:$PATH
-export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
-
-# Install PyTorch for CUDA 11.8
-pip install --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# Option 1: Use pre-built flash-attention wheel (faster but may have compatibility issues)
-pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu11torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-
-# Option 2: Build from source (slower but more reliable)
-FORCE_CUDA=1 CUDA_HOME=/usr/local/cuda-11.8 pip install openrlhf[vllm_latest]
-```
-
-### 5. Prepare Your Cache so it uses the larger network /data volume
-
-Move model caches to your larger `/data` volume to conserve space:
-```bash
-mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub
-rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
-rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
-# Verify symlinks
-ls -la /root/.cache/
-```
-
----
 
 ### 6. (Optional) Set Your WandB API Key
 
