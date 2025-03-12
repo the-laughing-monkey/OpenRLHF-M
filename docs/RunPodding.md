@@ -36,13 +36,16 @@ Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're
 
 3. Set your GPU count (more than one if you like parallel power!).
 
-4. Click **Edit Template** to adjust:
+4. Choose the correct template:
+RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
+
+5. Click **Edit Template** to adjust:
    - Container disk size (50GB is a good start).
    - Attach your volume by mounting it to `/data`.
    - Enable a public IP.
    - Set Expose TCP Ports to expose the default port and the Ray ports: `22,6379,8265`
 
-5. Ensure that "ssh" and "start Jupyter Notebook" are checked, then click **Deploy**.
+6. Ensure that "ssh" and "start Jupyter Notebook" are checked, then click **Deploy**.
 
 ### 3. Configure Your SSH Access
 
@@ -89,7 +92,7 @@ Next, check which CUDA toolkit is actually installed in your container:
 ls -la /usr/local/cuda*
 ```
 
-You'll likely notice a mismatch - for example, `nvidia-smi` might show CUDA 12.7, but your container might only have CUDA 11.8 installed. For optimal performance, especially with flash-attention, we recommend installing CUDA 12 build tools that better match your drivers:
+You'll likely notice a mismatch - for example, `nvidia-smi` might show CUDA 12.7, but your container might only have CUDA 11.8 installed. For optimal performance, especially with installing flash-attention, we recommend installing CUDA 12 build tools that better match your drivers:
 
 ```bash
 # Download CUDA 12.1 toolkit (compatible with 12.7 drivers)
@@ -132,6 +135,7 @@ pip install vllm==0.7.3
 # Then install OpenRLHF without the vLLM extra
 ```bash
 pip install .
+pip install 'ray[default]'  # Ensure dashboard dependencies
 ```
 
 ### 7. (Optional) Set Your WandB API Key
