@@ -58,7 +58,7 @@ Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're
    ssh -i ~/.ssh/my_runpod_key root@<POD_IP_ADDRESS> -p <SSH_PORT>
 ```
 
-### 4. Set Up Your Python Environment and Install Packages
+### 4. Set Up Your Python Environment and Install OpenRLHF-M
 
 1. Update the system and install Python tools:
 ```bash
@@ -69,26 +69,91 @@ Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're
 ```bash
    cd /data
    python3 -m venv openrlhf-env
-   source openrlhf-env/bin/activate  
+   source openrlhf-env/bin/activate
 ```
 
-3. Clone the OpenRLHF-M repository and install:
+3. Install the latest pip, wheel, and packaging:
 ```bash
-   git clone https://github.com/OpenRLHF/OpenRLHF-M.git
-   cd OpenRLHF-M
-   pip install -e .[vllm]
+   pip install --upgrade pip wheel packaging
 ```
 
-4. Install Flash Attention Nightly Build for CUDA 12.7:
+4. **IMPORTANT: Set up the proper CUDA environment for optimal performance**
+
+First, check what CUDA version your drivers support:
 ```bash
-   pip uninstall -y flash-attn
-   wget -nv https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-   pip install flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-   rm -f flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+nvidia-smi
 ```
 
+Next, check which CUDA toolkit is actually installed in your container:
+```bash
+ls -la /usr/local/cuda*
+```
 
-### 6. Prepare Your Cache so it uses the larger network /data volume
+You'll likely notice a mismatch - for example, `nvidia-smi` might show CUDA 12.7, but your container might only have CUDA 11.8 installed. For optimal performance, especially with flash-attention, we recommend installing CUDA 12 build tools that better match your drivers:
+
+```bash
+# Install dependencies required for CUDA installation
+apt-get update
+apt-get install -y build-essential dkms
+
+# Download CUDA 12.1 toolkit (compatible with 12.7 drivers)
+wget https://developer.download.nvidia.com/compute/cuda/12.1.0/local_installers/cuda_12.1.0_530.30.02_linux.run
+
+# Install CUDA 12.1 toolkit (--toolkit only installs development tools, not drivers)
+sh cuda_12.1.0_530.30.02_linux.run --toolkit --silent --override
+
+# Set environment variables to use CUDA 12.1
+export CUDA_HOME=/usr/local/cuda-12.1
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+# Add these exports to your .bashrc for persistence
+echo 'export CUDA_HOME=/usr/local/cuda-12.1' >> ~/.bashrc
+echo 'export PATH=$CUDA_HOME/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+
+# Verify the CUDA toolkit installation
+nvcc --version
+```
+
+5. Install a compatible PyTorch version for CUDA 12:
+```bash
+# For CUDA 12.1
+pip install --force-reinstall --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+6. Clone the OpenRLHF-M repository and install with proper CUDA detection:
+```bash
+# Clone the repository
+git clone https://github.com/OpenRLHF/OpenRLHF-M.git
+cd OpenRLHF-M
+
+# This will install all dependencies with the CUDA 12.1 toolkit
+# The build process will be much faster than with CUDA 11.8
+pip install openrlhf[vllm_latest]
+```
+
+### Alternative: If you prefer not to install CUDA 12 toolkit
+
+If you cannot install CUDA 12 toolkit or prefer to use the existing CUDA 11.8:
+
+```bash
+# Use the existing CUDA 11.8 installation
+export CUDA_HOME=/usr/local/cuda-11.8
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+# Install PyTorch for CUDA 11.8
+pip install --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Option 1: Use pre-built flash-attention wheel (faster but may have compatibility issues)
+pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu11torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+
+# Option 2: Build from source (slower but more reliable)
+FORCE_CUDA=1 CUDA_HOME=/usr/local/cuda-11.8 pip install openrlhf[vllm_latest]
+```
+
+### 5. Prepare Your Cache so it uses the larger network /data volume
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
@@ -101,7 +166,7 @@ ls -la /root/.cache/
 
 ---
 
-### 7. (Optional) Set Your WandB API Key
+### 6. (Optional) Set Your WandB API Key
 
 If you wish to use Weights & Biases (wandb) for experiment tracking, consider setting your API key:
 1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
@@ -113,7 +178,7 @@ This step is optional but recommended for more integrated experiment monitoring.
 
 ---
 
-### 8. Run Your First OpenRLHF-M Training Job
+### 7. Run Your First OpenRLHF-M Training Job
 
 Now you're ready to launch a training job. For example, to train a Qwen2.5‑VL‑3B model with RLOO (Reinforcement Learning with Off-policy Updates):
 
@@ -159,7 +224,7 @@ Now run the script:
    bash examples/scripts/train_rloo_qwenvl2_5_math.sh
 ```
 
-### 9. Monitoring NVIDIA GPU Memory
+### 8. Monitoring NVIDIA GPU Memory
 
 To monitor the NVIDIA GPU memory usage while the script loads and runs, open a new terminal session (or use a multiplexer like tmux/screen) and run:
 
@@ -235,46 +300,150 @@ In addition to monitoring GPUs and storage, you can set up Prometheus and Grafan
 
 #### Installing Prometheus
 
-1. **Download Prometheus:**  
-   Visit the [Prometheus Downloads page](https://prometheus.io/download/) and download the appropriate binary for your operating system.
-
-2. **Configure Prometheus:**  
-   Create a file named `prometheus.yml` with the following content. This configuration instructs Prometheus to scrape Ray's metrics from the service discovery file:
-   ```yaml
+1. **Download and install Prometheus version 3.2.1 (latest):**  
+   ```bash
+   # Create a system user for Prometheus
+   sudo useradd --no-create-home --shell /bin/false prometheus
+   
+   # Create directories for Prometheus
+   sudo mkdir -p /etc/prometheus /var/lib/prometheus
+   
+   # Download Prometheus 3.2.1
+   wget https://github.com/prometheus/prometheus/releases/download/v3.2.1/prometheus-3.2.1.linux-amd64.tar.gz
+   
+   # Extract the tarball
+   tar -xvf prometheus-3.2.1.linux-amd64.tar.gz
+   
+   # Move into the extracted directory
+   cd prometheus-3.2.1.linux-amd64
+   
+   # Copy the binaries to /usr/local/bin
+   sudo cp prometheus promtool /usr/local/bin/
+   
+   # Copy configuration files
+   sudo cp -r consoles console_libraries /etc/prometheus/
+   
+   # Create a basic prometheus.yml configuration
+   sudo tee /etc/prometheus/prometheus.yml > /dev/null <<EOF
    global:
-     scrape_interval:     2s
+     scrape_interval: 2s
      evaluation_interval: 2s
-
+   
    scrape_configs:
    - job_name: 'ray'
      file_sd_configs:
      - files:
        - '/tmp/ray/prom_metrics_service_discovery.json'
+   EOF
+   
+   # Set proper permissions
+   sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+   
+   # Create a systemd service file for prometheus
+   sudo tee /etc/systemd/system/prometheus.service > /dev/null <<EOF
+   [Unit]
+   Description=Prometheus
+   Wants=network-online.target
+   After=network-online.target
+   
+   [Service]
+   User=prometheus
+   Group=prometheus
+   Type=simple
+   Restart=on-failure
+   ExecStart=/usr/local/bin/prometheus \\
+       --config.file /etc/prometheus/prometheus.yml \\
+       --storage.tsdb.path /var/lib/prometheus/ \\
+       --web.console.templates=/etc/prometheus/consoles \\
+       --web.console.libraries=/etc/prometheus/console_libraries \\
+       --web.listen-address=0.0.0.0:9090 \\
+       --web.enable-lifecycle
+   
+   [Install]
+   WantedBy=multi-user.target
+   EOF
+   
+   # Reload systemd to apply the new service
+   sudo systemctl daemon-reload
+   
+   # Start and enable Prometheus
+   sudo systemctl start prometheus
+   sudo systemctl enable prometheus
+   
+   # Open port 9090 for Prometheus web interface
+   sudo ufw allow 9090/tcp
+   
+   # Verify Prometheus is running
+   systemctl status prometheus
+   
+   # Access Prometheus web interface at http://your-server-ip:9090
    ```
-
-3. **Start Prometheus:**  
-   From the directory where you extracted Prometheus, run:
-   ```bash
-   ./prometheus --config.file=prometheus.yml
-   ```
-   By default, Prometheus will run on port 9090.
 
 #### Installing Grafana
 
-1. **Download Grafana:**  
-   Visit the [Grafana Downloads page](https://grafana.com/grafana/download) and install Grafana for your operating system.
-
-2. **Start Grafana:**  
-   After installation, start Grafana (for example, on a Linux system you might run):
+1. **Download and install Grafana 11.5.2 (latest):**  
    ```bash
+   # Download Grafana 11.5.2 Debian package
+   wget https://dl.grafana.com/oss/release/grafana_11.5.2_amd64.deb
+   
+   # Install the package
+   sudo dpkg -i grafana_11.5.2_amd64.deb
+   
+   # Install any missing dependencies
+   sudo apt-get install -f
+   
+   # Enable and start Grafana service
+   sudo systemctl daemon-reload
+   sudo systemctl enable grafana-server
    sudo systemctl start grafana-server
+   
+   # Allow access to Grafana web interface (port 3000)
+   sudo ufw allow 3000/tcp
+   
+   # Check Grafana service status
+   sudo systemctl status grafana-server
+   
+   # Create a basic datasource for Prometheus
+   # First create the datasource configuration file
+   sudo mkdir -p /etc/grafana/provisioning/datasources
+   
+   sudo tee /etc/grafana/provisioning/datasources/prometheus.yaml > /dev/null <<EOF
+   apiVersion: 1
+   
+   datasources:
+     - name: Prometheus
+       type: prometheus
+       access: proxy
+       url: http://localhost:9090
+       isDefault: true
+       editable: true
+   EOF
+   
+   # Restart Grafana to apply the datasource configuration
+   sudo systemctl restart grafana-server
+   
+   # Access Grafana web interface at http://your-server-ip:3000
+   # Default login credentials:
+   # Username: admin
+   # Password: admin
+   # You'll be prompted to change the password on first login
    ```
-   Grafana usually runs on port 3000. Open your browser at `http://localhost:3000` and log in (the default username and password are both `admin`).
 
-3. **Configure Grafana to Use Prometheus:**  
-   - In Grafana, add a new data source of type **Prometheus**.
-   - Set the URL to point to your Prometheus server (for example, `http://localhost:9090`).
-   - Optionally, you may import the Ray default dashboard JSON from your Ray session directory (typically at `/tmp/ray/session_latest/metrics/grafana/dashboards/default_grafana_dashboard.json`).
+2. **Import Ray Dashboard:**  
+   After logging in to Grafana:
+   ```bash
+   # Copy the Ray dashboard JSON to a location accessible by Grafana
+   sudo cp /tmp/ray/session_latest/metrics/grafana/dashboards/default_grafana_dashboard.json /tmp/ray_dashboard.json
+   
+   # Set appropriate permissions
+   sudo chmod 644 /tmp/ray_dashboard.json
+   
+   # In the Grafana web interface:
+   # 1. Click on "+" icon in the left sidebar and select "Import"
+   # 2. Click "Upload JSON file" and select the /tmp/ray_dashboard.json file
+   # 3. Select the Prometheus datasource from the dropdown
+   # 4. Click "Import" to finish
+   ```
 
 #### Configuring Ray to Export Metrics
 
@@ -290,11 +459,11 @@ Once you have Prometheus and Grafana running, you will have multiple options:
 
 ---
 
-## 2. Update Your Shell Scripts to Use Metrics
+## Update Your Shell Scripts to Use Metrics
 
 You need to update the Ray start command in your job scripts so that Ray is launched with the metrics-export-port configured. For example, update the two scripts as follows:
 
-### Updated `train_grpo_ray_hybrid_engine.sh`
+### Example `train_grpo_ray_hybrid_engine.sh`
 
 Replace the existing Ray start command with one that includes the metrics-export-port flag. For example:
 
@@ -376,75 +545,6 @@ ray job submit --address="http://127.0.0.1:8265" \
 ray stop
 ```
 
-### Updated `train_rloo_qwenvl2_5_math.sh`
-
-Likewise, update the Ray start line:
-
-```shell
-export DATASET="hiyouga/math12k"
-
-MODEL_CPK_NAME="qwenvl25_3B_ins_rloo_math"
-PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
-SAVE_PATH="./ckpts"
-mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
-
-python3 -m openrlhf.models.remote_rm.math_verifier \
-   --dataset $DATASET \
-   --input_key problem \
-   --prompt-template "Question: {}\nAnswer:" \
-   > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
-childpid=$!
-
-# Start Ray on the head node with 2 GPUs and export metrics on port 8080.
-ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir ~/.cache/ray
-
-ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
-   -- python3 -m openrlhf.cli.train_ppo_ray \
-   --ref_num_nodes 1 \
-   --ref_num_gpus_per_node 2 \
-   --remote_rm_url http://127.0.0.1:5000/get_reward \
-   --actor_num_nodes 1 \
-   --actor_num_gpus_per_node 2 \
-   --vllm_num_engines 1 \
-   --vllm_tensor_parallel_size 2 \
-   --colocate_all_models \
-   --vllm_enable_sleep \
-   --vllm_gpu_memory_utilization 0.5 \
-   --vllm_sync_backend gloo \
-   --enable_prefix_caching \
-   --pretrain $PRETRAIN_MODEL \
-   --save_path $SAVE_PATH/$MODEL_CPK_NAME \
-   --micro_train_batch_size 2 \
-   --train_batch_size 128 \
-   --micro_rollout_batch_size 4 \
-   --rollout_batch_size 256 \
-   --temperature 1 \
-   --n_samples_per_prompt 16 \
-   --max_epochs 1 \
-   --num_episodes 30 \
-   --prompt_max_len 1024 \
-   --max_samples 100000 \
-   --generate_max_len 3000 \
-   --advantage_estimator rloo \
-   --zero_stage 3 \
-   --bf16 \
-   --actor_learning_rate 1e-6 \
-   --init_kl_coef 0.0 \
-   --prompt_data $DATASET \
-   --input_key problem \
-   --input_template "Question: {}\nAnswer:" \
-   --normalize_reward \
-   --flash_attn \
-   --gradient_checkpointing \
-   --save_steps 10 \
-   --ckpt_path $SAVE_PATH/$MODEL_CPK_NAME/ckpt \
-   --save_hf_ckpt \
-   --use_tensorboard $SAVE_PATH/$MODEL_CPK_NAME/logs
-
-ray stop
-```
-
 ---
 
 ## References
@@ -453,8 +553,6 @@ ray stop
 - [Prometheus Downloads](https://prometheus.io/download/)
 - [Grafana Downloads](https://grafana.com/grafana/download)
 
-With these updates, your Ray cluster will export metrics on port 8080, which you can scrape with Prometheus and visualize in Grafana. The updated documentation now explains the installation and configuration process, and your shell scripts are modified to set up Ray with these metrics.
-
 ---
 
 ## Final Thoughts
@@ -462,3 +560,52 @@ With these updates, your Ray cluster will export metrics on port 8080, which you
 This guide ensures you have all the tools to deploy OpenRLHF-M on RunPod. OpenRLHF-M's architecture enables efficient distributed training of large language and multimodal models using various reinforcement learning techniques.
 
 Happy RunPodding, and may your training sessions be as rewarding as they are fun!
+
+## Troubleshooting
+
+### CUDA Version Mismatch Issues
+
+A common issue on RunPod is that `nvidia-smi` may show CUDA 12.7, but your container might only have CUDA 11.8 toolkit files. Here's how to handle this mismatch:
+
+1. **Check both the driver's CUDA version and toolkit installation**:
+```bash
+# Check driver's CUDA version
+nvidia-smi
+
+# Check what CUDA toolkit is actually installed
+ls -la /usr/local/cuda*
+```
+
+2. **Use the CUDA version that actually exists in your container**:
+```bash
+# If you only have CUDA 11.8 toolkit
+export CUDA_HOME=/usr/local/cuda-11.8
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+```
+
+3. **Install PyTorch matching your toolkit version**:
+```bash
+# For CUDA 11.8 toolkit
+pip uninstall -y torch torchvision torchaudio
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda)"
+```
+
+4. **For flash-attention with CUDA 11.8**:
+```bash
+# Use the pre-built wheel specifically for CUDA 11.8 and appropriate PyTorch version
+pip install flash-attn --no-build-isolation
+```
+
+### Creating Symlinks (Optional Solution)
+
+If you want to keep using the CUDA 12.7 references in the commands but your system only has CUDA 11.8 toolkit:
+
+```bash
+# Create a symlink from CUDA 12.7 to your actual CUDA toolkit
+sudo ln -sf /usr/local/cuda-11.8 /usr/local/cuda-12.7
+
+# Then you can use the CUDA 12.7 path as in the guide
+export CUDA_HOME=/usr/local/cuda-12.7
+```
