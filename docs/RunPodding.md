@@ -137,6 +137,10 @@ pip install vllm==0.7.3
 pip install .
 pip install 'ray[default]'  # Ensure dashboard dependencies
 ```
+# Install flash attention
+```bash
+pip install flash-attn --no-build-isolation
+```
 
 ### 7. (Optional) Set Your WandB API Key
 
