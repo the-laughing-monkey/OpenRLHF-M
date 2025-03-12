@@ -62,7 +62,7 @@ Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're
 
 1. Update the system and install Python tools:
 ```bash
-   apt update && apt upgrade -y && apt install -y python3-pip python3-venv python3-dev build-essential git curl vim lsof net-tools rsync libopenmpi-dev
+   apt update && apt upgrade -y && apt install -y python3-pip python3-venv python3-dev build-essential git curl vim lsof net-tools rsync libopenmpi-dev build-essential dkms
 ```
 
 2. Create a virtual environment in your data directory:
@@ -74,10 +74,10 @@ Here, we show you how to unleash OpenRLHF-M on a RunPod instance. Whether you're
 
 3. Install the latest pip, wheel, and packaging:
 ```bash
-   pip install --upgrade pip wheel packaging
+   pip install --upgrade pip wheel packaging setuptools
 ```
 
-4. **IMPORTANT: Set up the proper CUDA environment for optimal performance**
+4. **IMPORTANT: Set up the proper CUDA environment**
 
 First, check what CUDA version your drivers support:
 ```bash
@@ -92,10 +92,6 @@ ls -la /usr/local/cuda*
 You'll likely notice a mismatch - for example, `nvidia-smi` might show CUDA 12.7, but your container might only have CUDA 11.8 installed. For optimal performance, especially with flash-attention, we recommend installing CUDA 12 build tools that better match your drivers:
 
 ```bash
-# Install dependencies required for CUDA installation
-apt-get update
-apt-get install -y build-essential dkms
-
 # Download CUDA 12.1 toolkit (compatible with 12.7 drivers)
 wget https://developer.download.nvidia.com/compute/cuda/12.1.0/local_installers/cuda_12.1.0_530.30.02_linux.run
 
@@ -116,15 +112,26 @@ echo 'export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
 nvcc --version
 ```
 
-6. Clone the OpenRLHF-M repository and install with proper CUDA detection:
+6. Install torch and torchvision with the correct version
 ```bash
-# Clone the repository
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+
+7. # Clone the repository OpenRLHF-M repository and install it
+```bash
 git clone https://github.com/OpenRLHF/OpenRLHF-M.git
 cd OpenRLHF-M
+```
 
-# This will install all dependencies with the CUDA 12.1 toolkit
-# The build process will be much faster than with CUDA 11.8
-pip install openrlhf[vllm_latest]
+# First explicitly install vLLM with the correct version
+```bash
+pip install vllm==0.7.3
+```
+
+# Then install OpenRLHF without the vLLM extra
+```bash
+pip install .
 ```
 
 ### 7. (Optional) Set Your WandB API Key
@@ -171,7 +178,7 @@ d. Set your dataset path to your actual dataset path:
 
 e. Change the GPU number in Ray to match your pod:
 ```bash
-   ray start --head --node-ip-address 0.0.0.0 --num-gpus 8 --temp-dir ~/.cache/ray
+   ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --temp-dir ~/.cache/ray
 ```
 
 f. Finally set your working directory to your actual working directory:

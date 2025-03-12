@@ -20,7 +20,7 @@ ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --temp-dir ~/.cache/ray
 
 # Submit the job using a runtime working directory of /data/lmm-r1 
 ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/data/lmm-r1"}' \
+   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
    --ref_num_gpus_per_node 2 \
