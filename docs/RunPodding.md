@@ -154,7 +154,19 @@ This step is optional but recommended for more integrated experiment monitoring.
 
 ---
 
-### 7. Run Your First OpenRLHF-M Training Job
+### 8. Prepare Your Cache
+
+Move model caches to your larger `/data` volume to conserve space:
+```bash
+mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub
+rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
+rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
+# Verify symlinks
+ls -la /root/.cache/
+```
+---
+
+### 9. Run Your First OpenRLHF-M Training Job
 
 Now you're ready to launch a training job. For example, to train a Qwen2.5‑VL‑3B model with RLOO (Reinforcement Learning with Off-policy Updates):
 
@@ -200,7 +212,7 @@ Now run the script:
    bash examples/scripts/train_rloo_qwenvl2_5_math.sh
 ```
 
-### 8. Monitoring NVIDIA GPU Memory
+### 10. Monitoring NVIDIA GPU Memory
 
 To monitor the NVIDIA GPU memory usage while the script loads and runs, open a new terminal session (or use a multiplexer like tmux/screen) and run:
 
@@ -222,7 +234,8 @@ watch -n 1 "echo 'GPU   Total(MiB)   Used(MiB)'; nvidia-smi --query-gpu=index,me
 
 ---
 
-ARCHIVE: Nightly build docs if you want specific version of packages:
+# ARCHIVE of OPTIONAL INSTALLS AND APPROACHES:
+
 
 - **NightlyFlash Attention:**
 ```bash
@@ -247,7 +260,7 @@ OR it could be with a specific commit:
 pip install --upgrade --force-reinstall git+https://github.com/huggingface/transformers@f3f6c86582611976e72be054675e2bf0abb5f775
 ```
 
-### 6. Start Ray on Your Nodes Manually if you Want Instead of via Script
+### 10. Start Ray on Your Nodes Manually if you Want Instead of via Script
 
 **Before launching any training scripts, you must start Ray on your pod.**
 
@@ -270,7 +283,7 @@ After executing the appropriate command on each node, verify that Ray is running
 ray status
 ```
 
-### 7. (Optional) Monitoring Ray Metrics with Prometheus and Grafana
+### 11. (Optional) Monitoring Ray Metrics with Prometheus and Grafana
 
 In addition to monitoring GPUs and storage, you can set up Prometheus and Grafana in your Ray cluster so you can view detailed metrics.
 
