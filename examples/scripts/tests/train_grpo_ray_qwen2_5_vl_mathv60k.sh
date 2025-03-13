@@ -23,7 +23,7 @@ export WORKSPACE_DIR="$(pwd)"
 export DATASET_PATH="/data/datasets/VerMulti/mathv60k_message.jsonl"
 export PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-3B-Instruct"
 export SAVE_PATH="./checkpoints" 
-export MODEL_NAME="qwen2.5-vl-3b-ins-mgt-percereas-grpo"
+export MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
 export WANDB_DIR="${WORKSPACE_DIR}"  
 
 # Check if WANDB_API_KEY exists in environment

@@ -173,12 +173,19 @@ This step is optional but recommended for more integrated experiment monitoring.
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
-mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub
+mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
 rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
 rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
+rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
 # Verify symlinks
 ls -la /root/.cache/
 ```
+
+This is a critical step because:
+- Ray uses local cache for storing temporary objects, logs, and spilled objects when memory is full
+- Model training checkpoints can be large (multiple GB each)
+- The default container disk (50GB) will quickly fill up during training
+- Moving these to your data volume (500GB-1000GB) prevents "No space left on device" errors
 ---
 
 ### 9. Download and Prepare the MathV60K Dataset
@@ -253,8 +260,28 @@ export WANDB_API_KEY=your_api_key_here
 
 3. Run the adjusted training script:
 ```bash
-bash my_train_script.sh
+bash train_ppo_ray_qwen2_5_vl_mathv60k.sh
 ```
+
+4. **Important Disk Space Considerations:**
+
+Disk space issues can cause training to fail when saving checkpoints. Adjust these parameters in your training script to prevent disk space problems:
+
+```bash
+# Save less frequently
+--save_steps 50 \  # Default is often too frequent (e.g., 10)
+
+# Limit number of checkpoints kept (default is 3)
+--max_ckpt_num 2 \
+
+# Control checkpoint format (smaller but less compatible)
+--save_only_model \ # Skip optimizer states for smaller checkpoints
+
+# Use a temp directory on the larger volume
+--ray_temp_dir /data/cache-ray \
+```
+
+These adjustments, combined with the cache symlinks created earlier, will help prevent "No space left on device" errors.
 
 ### 11. Monitoring NVIDIA GPU Memory
 
@@ -274,6 +301,50 @@ watch -n 1 "nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilizat
 
 ```bash
 watch -n 1 "echo 'GPU   Total(MiB)   Used(MiB)'; nvidia-smi --query-gpu=index,memory.total,memory.used --format=csv,noheader,nounits | awk -F',' '{printf \"%-3s %-12s %-10s\n\", \$1, \$2, \$3}'"
+```
+
+### 12. Monitoring and Managing Disk Space
+
+Running out of disk space is a common issue during training. To monitor disk usage:
+
+```bash
+# Check overall disk usage
+df -h
+
+# Find largest directories and files in /root
+du -h --max-depth=2 /root | sort -hr | head -20
+
+# Find largest directories in Ray cache
+du -h --max-depth=2 /data/cache-ray | sort -hr | head -20
+
+# Find large checkpoint files
+find /data -name "*.pt" -size +1G | xargs ls -lh
+```
+
+If you're running low on disk space despite using the data volume:
+
+```bash
+# Clear Triton cache (safe to delete)
+rm -rf /root/.triton/autotune
+
+# Clear older Ray session directories (if not using the symlink setup)
+find /root/.cache/ray/session_* -maxdepth 0 -type d | sort | head -n -2 | xargs rm -rf
+
+# Reduce checkpoint frequency in training scripts
+# Example: Change --save_steps 10 to --save_steps 50
+
+# Limit the number of checkpoints kept
+# Example: Add --max_ckpt_num 2 to training arguments
+```
+
+For critical low disk situations, you can safely clear caches:
+
+```bash
+# Clear PyTorch hub cache
+rm -rf /root/.cache/torch/hub/*
+
+# Remove older checkpoints if needed
+find /data/checkpoints -name "global_step*" | sort | head -n -2 | xargs rm -rf
 ```
 
 ---
