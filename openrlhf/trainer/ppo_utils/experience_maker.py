@@ -559,6 +559,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         super().__init__(*args, **kwargs)
         self.vllm_engines = vllm_engines
         self.packing_samples = packing_samples
+        self.response_length_list = []  # Initialize response_length_list attribute
 
         if self.custom_reward_func:
             self.custom_reward_func = ray.remote(self.custom_reward_func)
@@ -800,6 +801,9 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
 
     def _generate_vllm(self, all_prompts: List[str], all_labels, **kwargs) -> List[Samples]:
         from vllm import SamplingParams
+        # Reset response length list at the beginning of generation
+        self.response_length_list = []
+        
         # round-robin load balance
         rank = torch.distributed.get_rank() // self.strategy.ring_attn_size
         world_size = torch.distributed.get_world_size() // self.strategy.ring_attn_size
@@ -921,6 +925,8 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         pad_len=None,
                     )
                 )
+                # Track response lengths for wandb logging
+                self.response_length_list.extend(action_mask.float().sum(dim=-1).tolist())
             else:
                 # NOTE: concat all outputs to following format:
                 #
@@ -979,6 +985,8 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
                         pad_len=pad_len,
                     )
                 )
+                # Track response lengths for wandb logging
+                self.response_length_list.extend(response_length.tolist())
         return samples_list
 
     def flush(self):
