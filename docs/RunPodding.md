@@ -163,7 +163,7 @@ If you wish to use Weights & Biases (wandb) for experiment tracking, consider se
 1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
 2. On your pod, run:
 ```bash
-   wandb login YOUR_WANDB_API_KEY
+   export WANDB_API_KEY=your_api_key_here
 ```
 This step is optional but recommended for more integrated experiment monitoring.
 
