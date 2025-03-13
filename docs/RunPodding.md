@@ -232,7 +232,7 @@ Make the following adjustments:
 
 a. Update the Ray start command to match your GPU count (replace `4` with your actual GPU count):
 ```bash
-ray start --head --node-ip-address 0.0.0.0 --num-gpus 4 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address 0.0.0.0 --num-gpus 4 --temp-dir /data/cache-ray
 ```
 
 b. Update the GPU distribution in the training command. For example, if you have 2 GPUs:
@@ -275,10 +275,15 @@ Disk space issues can cause training to fail when saving checkpoints. Adjust the
 --max_ckpt_num 2 \
 
 # Control checkpoint format (smaller but less compatible)
---save_only_model \ # Skip optimizer states for smaller checkpoints
+--disable_ds_ckpt \ # Skip DeepSpeed format checkpoints which are larger
+--save_hf_ckpt \    # While still saving HuggingFace format checkpoints (recommended)
+```
 
-# Use a temp directory on the larger volume
---ray_temp_dir /data/cache-ray \
+Also, make sure to direct Ray to use your large data volume for temporary files by changing the Ray startup command:
+
+```bash
+# Change this line in your script:
+ray start --head --node-ip-address 0.0.0.0 --num-gpus 4 --temp-dir /data/cache-ray
 ```
 
 These adjustments, combined with the cache symlinks created earlier, will help prevent "No space left on device" errors.
@@ -553,7 +558,7 @@ In addition to monitoring GPUs and storage, you can set up Prometheus and Grafan
 
 When starting your Ray cluster, include the `--metrics-export-port=8080` flag to have Ray export metrics to that port. For example:
 ```bash
-ray start --head --node-ip-address=0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address=0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir /data/cache-ray
 ```
 Prometheus (using the configuration above) will use the file-based service discovery (located at `/tmp/ray/prom_metrics_service_discovery.json`) to locate and scrape your Ray metrics.
 
@@ -590,7 +595,7 @@ python3 -m openrlhf.models.remote_rm.math_verifier \
 childpid=$!
 
 # Start Ray on the head node with 2 GPUs and export metrics on port 8080.
-ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir /data/cache-ray
 
 # Submit the job using a runtime working directory of /data/OpenRLHF-M.
 ray job submit --address="http://127.0.0.1:8265" \
