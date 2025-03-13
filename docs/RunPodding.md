@@ -92,7 +92,14 @@ Next, check which CUDA toolkit is actually installed in your container:
 ls -la /usr/local/cuda*
 ```
 
-You'll likely notice a mismatch - for example, `nvidia-smi` might show CUDA 12.7, but your container might only have CUDA 11.8 installed. For optimal performance, especially with installing flash-attention, we recommend installing CUDA 12 build tools that better match your drivers:
+You'll likely notice a mismatch - for example, `nvidia-smi` might show CUDA 12.7, but your container might only have CUDA 11.8 installed. For this to work you MUST have CUDA 12 build tools installed, especially for installing flash-attention, we recommend installing CUDA 12 build tools that better match your drivers:
+
+First check if you have CUDA 12.x installed:
+```bash
+ls -la /usr/local/cuda*
+```
+
+If you DO, you can SKIP the rest of the steps and GO RIGHT TO section 5. If you don't, you can install CUDA 12.1 toolkit:
 
 ```bash
 # Download CUDA 12.1 toolkit (compatible with 12.7 drivers)
@@ -115,13 +122,20 @@ echo 'export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
 nvcc --version
 ```
 
-6. Install torch and torchvision with the correct version
+### 5. Install torch and torchvision with the correct version
+
+If you have CUDA 12.x installed, you can install torch and torchvision with the correct version:
+```bash
+pip install torch torchvision torchaudio
+```
+
+If you don't have CUDA 12.x installed, you can install torch and torchvision with the correct version indexed on 12.1 per the installation instructions above:
 ```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
 
-7. # Clone the repository OpenRLHF-M repository and install it
+### 6. Clone the repository OpenRLHF-M repository and install it
 ```bash
 git clone https://github.com/OpenRLHF/OpenRLHF-M.git
 cd OpenRLHF-M
@@ -134,6 +148,7 @@ pip install vllm==0.7.3
 
 # Then install OpenRLHF without the vLLM extra
 ```bash
+cd OpenRLHF-M
 pip install .
 pip install 'ray[default]'  # Ensure dashboard dependencies
 ```
@@ -166,56 +181,82 @@ ls -la /root/.cache/
 ```
 ---
 
-### 9. Run Your First OpenRLHF-M Training Job
+### 9. Download and Prepare the MathV60K Dataset
 
-Now you're ready to launch a training job. For example, to train a Qwen2.5‑VL‑3B model with RLOO (Reinforcement Learning with Off-policy Updates):
+Before running a training job, you'll need to prepare the dataset:
 
-1. First edit the script:
-
-a. Change this: 
+1. Create the datasets directory:
 ```bash
-   PRETRAIN_MODEL="/root/projects/OpenRLHF/ckpts/Qwen2.5-VL-3B-Instruct"
+mkdir -p /data/datasets
 ```
 
-b. To this so you can use the model from HuggingFace:
+2. Download and prepare the MathV60K dataset:
 ```bash
-   PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
+cd /data/OpenRLHF-M
+python examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
-c. Make sure to match the number of nodes and GPUs on your pod:
+This script will:
+- Download the dataset files from Hugging Face
+- Extract images to the specified directory
+- Process the JSONL file to update paths
+- Make the dataset ready for training
+
+The script provides detailed progress information and will tell you when the dataset is ready.
+
+### 10. Run Your First OpenRLHF-M Training Job with MathV60K
+
+Now you're ready to launch a training job using the MathV60K dataset and the Qwen2.5-VL-3B model:
+
+1. First, adjust the GPU configuration in the script to match your RunPod setup:
+
 ```bash
-   --ref_num_nodes 1 \
-   --ref_num_gpus_per_node 2 \
-   --reward_num_nodes 1 \
-   --reward_num_gpus_per_node 2 \
-   --actor_num_nodes 1 \
-   --actor_num_gpus_per_node 2 \
-   --vllm_num_engines 1 \
-   --vllm_tensor_parallel_size 2 \
+cd /data/OpenRLHF-M
+cp examples/scripts/tests/train_ppo_ray_qwen2_5_vl_mathv60k.sh ./my_train_script.sh
 ```
 
-d. Set your dataset path to your actual dataset path:
+2. Edit the script to match your pod's GPU configuration:
+
 ```bash
-   export DATASET="open-r1/OpenR1-Math-220k"
+nano my_train_script.sh
 ```
 
-e. Change the GPU number in Ray to match your pod:
+Make the following adjustments:
+
+a. Update the Ray start command to match your GPU count (replace `4` with your actual GPU count):
 ```bash
-   ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address 0.0.0.0 --num-gpus 4 --temp-dir ~/.cache/ray
 ```
 
-f. Finally set your working directory to your actual working directory:
+b. Update the GPU distribution in the training command. For example, if you have 2 GPUs:
 ```bash
-   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
+--ref_num_nodes 1 \
+--ref_num_gpus_per_node 4 \
+--actor_num_nodes 1 \
+--actor_num_gpus_per_node 4 \
+--critic_num_nodes 1 \
+--critic_num_gpus_per_node 4 \
+--vllm_num_engines 4 \
+--vllm_tensor_parallel_size 1 \
+--colocate_all_models \
 ```
 
-
-Now run the script:
+c. Make sure the working directory is set correctly:
 ```bash
-   bash examples/scripts/tests/train_grpo_ray_hybrid_engine_qwenvl2_5_math_text.sh
+--runtime-env-json="{\"working_dir\": \"/data/OpenRLHF-M\"}" \
 ```
 
-### 10. Monitoring NVIDIA GPU Memory
+d. Set your WANDB environment variable before running (if you want to use WandB):
+```bash
+export WANDB_API_KEY=your_api_key_here
+```
+
+3. Run the adjusted training script:
+```bash
+bash my_train_script.sh
+```
+
+### 11. Monitoring NVIDIA GPU Memory
 
 To monitor the NVIDIA GPU memory usage while the script loads and runs, open a new terminal session (or use a multiplexer like tmux/screen) and run:
 
@@ -485,13 +526,13 @@ ray job submit --address="http://127.0.0.1:8265" \
    --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
-   --ref_num_gpus_per_node 2 \
-   --reward_num_nodes 1 \
-   --reward_num_gpus_per_node 2 \
+   --ref_num_gpus_per_node 4 \
    --actor_num_nodes 1 \
-   --actor_num_gpus_per_node 2 \
-   --vllm_num_engines 1 \
-   --vllm_tensor_parallel_size 2 \
+   --actor_num_gpus_per_node 4 \
+   --critic_num_nodes 1 \
+   --critic_num_gpus_per_node 4 \
+   --vllm_num_engines 4 \
+   --vllm_tensor_parallel_size 1 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_gpu_memory_utilization 0.5 \
