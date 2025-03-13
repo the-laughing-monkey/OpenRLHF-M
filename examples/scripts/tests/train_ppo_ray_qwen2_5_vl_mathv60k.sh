@@ -22,7 +22,7 @@ export WORKSPACE_DIR="$(pwd)"
 export DATASET_PATH="/data/datasets/VerMulti/mathv60k_message.jsonl"
 export PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-3B-Instruct"
 export SAVE_PATH="./checkpoints" 
-export MODEL_NAME="qwen2.5-vl-3b-ins-mgt-percereas"
+export MODEL_NAME="qwen2.5-vl-3b-ins-mathvista"
 export WANDB_DIR="${WORKSPACE_DIR}"  
 
 # Check if WANDB_API_KEY exists in environment
@@ -51,7 +51,7 @@ mkdir -p "${CUR_LOG_DIR}"
 
 # Print information about the training run
 echo "================================================================"
-echo "OpenRLHF-M MGT-PerceReason Training"
+echo "OpenRLHF-M Math Vista Training"
 echo "================================================================"
 echo "Model name: ${MODEL_NAME}"
 echo "Dataset: ${DATASET_PATH}"
@@ -161,8 +161,8 @@ ray job submit --address="http://127.0.0.1:8265" \
    --actor_num_gpus_per_node 4 \
    --critic_num_nodes 1 \
    --critic_num_gpus_per_node 4 \
-   --vllm_num_engines 4 \
-   --vllm_tensor_parallel_size 1 \
+   --vllm_num_engines 1 \
+   --vllm_tensor_parallel_size 4 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_gpu_memory_utilization 0.5 \
@@ -171,11 +171,11 @@ ray job submit --address="http://127.0.0.1:8265" \
    --pretrain ${PRETRAIN_MODEL_PATH} \
    --save_path ${SAVE_PATH}/${MODEL_NAME} \
    --micro_train_batch_size 1 \
-   --train_batch_size 64 \
+   --train_batch_size 32 \
    --micro_rollout_batch_size 1 \
-   --rollout_batch_size 64 \
+   --rollout_batch_size 32 \
    --temperature 1.0 \
-   --n_samples_per_prompt 4 \
+   --n_samples_per_prompt 2 \
    --max_epochs 1 \
    --num_episodes 1 \
    --prompt_max_len 4096 \
@@ -193,7 +193,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --lambd 1 \
    --gamma 1 \
    --gradient_checkpointing \
-   --save_steps 20 \
+   --save_steps 5 \
    --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
    --save_hf_ckpt \
    --load_checkpoint \

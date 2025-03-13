@@ -23,7 +23,7 @@ export WORKSPACE_DIR="$(pwd)"
 export DATASET_PATH="/data/datasets/VerMulti/mathv60k_message.jsonl"
 export PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-3B-Instruct"
 export SAVE_PATH="./checkpoints" 
-export MODEL_NAME="qwen2.5-vl-3b-ins-mgt-percereas-grpo"
+export MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
 export WANDB_DIR="${WORKSPACE_DIR}"  
 
 # Check if WANDB_API_KEY exists in environment
@@ -97,8 +97,8 @@ echo "Starting training..."
 # === vLLM Configuration for 4 GPUs ===
 # Using 4 vLLM engines (one per GPU) with tensor_parallel_size=1
 # This maximizes throughput while fitting the model in GPU memory
-# --vllm_num_engines 4              : Create 4 separate vLLM engines (1 per GPU)
-# --vllm_tensor_parallel_size 1     : Each engine uses 1 GPU
+# --vllm_num_engines 2              : Create 2 separate vLLM engines (1 per GPU)
+# --vllm_tensor_parallel_size 2     : Each engine uses 2 GPU
 # --colocate_all_models             : Share GPUs between all model types
 # --vllm_enable_sleep               : Enable sleep mode when not in use
 # --vllm_gpu_memory_utilization 0.5 : Allow 50% GPU memory for vLLM
@@ -155,8 +155,8 @@ ray job submit --address="http://127.0.0.1:8265" \
    --remote_rm_url http://127.0.0.1:5000/get_reward \
    --actor_num_nodes 1 \
    --actor_num_gpus_per_node 4 \
-   --vllm_num_engines 4 \
-   --vllm_tensor_parallel_size 1 \
+   --vllm_num_engines 1 \
+   --vllm_tensor_parallel_size 4 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_gpu_memory_utilization 0.5 \
@@ -169,11 +169,11 @@ ray job submit --address="http://127.0.0.1:8265" \
    --micro_rollout_batch_size 1 \
    --rollout_batch_size 256 \
    --temperature 1.0 \
-   --n_samples_per_prompt 16 \
+   --n_samples_per_prompt 8 \
    --max_epochs 1 \
    --num_episodes 2 \
    --prompt_max_len 4096 \
-   --max_samples 100000 \
+   --max_samples 1000 \
    --generate_max_len 8000 \
    --advantage_estimator group_norm \
    --use_kl_loss \
@@ -189,7 +189,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --lambd 1 \
    --gamma 1 \
    --gradient_checkpointing \
-   --save_steps 20 \
+   --save_steps 5 \
    --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
    --save_hf_ckpt \
    --load_checkpoint \
