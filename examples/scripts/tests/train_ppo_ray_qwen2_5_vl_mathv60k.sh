@@ -171,15 +171,15 @@ ray job submit --address="http://127.0.0.1:8265" \
    --pretrain ${PRETRAIN_MODEL_PATH} \
    --save_path ${SAVE_PATH}/${MODEL_NAME} \
    --micro_train_batch_size 1 \
-   --train_batch_size 256 \
+   --train_batch_size 64 \
    --micro_rollout_batch_size 1 \
-   --rollout_batch_size 256 \
+   --rollout_batch_size 64 \
    --temperature 1.0 \
-   --n_samples_per_prompt 16 \
+   --n_samples_per_prompt 4 \
    --max_epochs 1 \
-   --num_episodes 2 \
+   --num_episodes 1 \
    --prompt_max_len 4096 \
-   --max_samples 100000 \
+   --max_samples 1000 \
    --generate_max_len 8000 \
    --advantage_estimator reinforce_baseline \
    --zero_stage 3 \
