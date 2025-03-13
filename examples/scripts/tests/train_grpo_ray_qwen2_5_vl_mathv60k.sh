@@ -165,15 +165,15 @@ ray job submit --address="http://127.0.0.1:8265" \
    --pretrain ${PRETRAIN_MODEL_PATH} \
    --save_path ${SAVE_PATH}/${MODEL_NAME} \
    --micro_train_batch_size 1 \
-   --train_batch_size 256 \
+   --train_batch_size 128 \
    --micro_rollout_batch_size 1 \
-   --rollout_batch_size 256 \
+   --rollout_batch_size 128 \
    --temperature 1.0 \
-   --n_samples_per_prompt 16 \
+   --n_samples_per_prompt 4 \
    --max_epochs 1 \
    --num_episodes 2 \
    --prompt_max_len 4096 \
-   --max_samples 100000 \
+   --max_samples 1000 \
    --generate_max_len 8000 \
    --advantage_estimator group_norm \
    --use_kl_loss \
@@ -189,7 +189,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --lambd 1 \
    --gamma 1 \
    --gradient_checkpointing \
-   --save_steps 20 \
+   --save_steps 5 \
    --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
    --save_hf_ckpt \
    --load_checkpoint \
