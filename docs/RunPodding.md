@@ -43,7 +43,6 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
    - Container disk size (50GB is a good start).
    - Attach your volume by mounting it to `/data`.
    - Enable a public IP.
-   - Set Expose TCP Ports to expose the default port and the Ray ports: `22,6379,8265`
 
 6. Ensure that "ssh" and "start Jupyter Notebook" are checked, then click **Deploy**.
 
