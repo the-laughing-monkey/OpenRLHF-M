@@ -325,9 +325,9 @@ else:
     print(f"Head node: using local RM URL: {local_rm_url}")
 
 # Import and run the training module
-from openrlhf.cli.train_ppo_ray import main
+from openrlhf.cli.train_ppo_ray import train
 print("Successfully imported training module")
-main()
+train()
 EOF
 
   # Submit the Ray job
