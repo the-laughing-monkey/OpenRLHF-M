@@ -286,49 +286,7 @@ if [ "${HEAD_NODE:-0}" -eq "1" ]; then
   echo "Ray dashboard connectivity:"
   curl -s -o /dev/null -w "Ray dashboard (127.0.0.1): %{http_code}\n" "http://127.0.0.1:8265/api/jobs/"
   echo "=========================="
-  
-  # Create a wrapper script that sets up environment correctly
-  TRAIN_SCRIPT="${CUR_LOG_DIR}/train_command.py"
-  echo "Creating training script: ${TRAIN_SCRIPT}"
-  cat > "${TRAIN_SCRIPT}" << 'EOF'
-#!/usr/bin/env python3
-import os
-import sys
-import socket
-import argparse
 
-# Initialize environment
-hostname = socket.gethostname()
-print(f"Training script running on: {hostname}")
-
-# Parse arguments for worker URL
-parser = argparse.ArgumentParser()
-parser.add_argument('--worker_rm_url', default=None, help="RM URL for worker nodes")
-args, remaining = parser.parse_known_args()
-
-# Remove our custom arg
-sys.argv = [sys.argv[0]] + remaining
-
-# Determine if this is head node or worker node (simple check)
-is_head_node = os.environ.get('RAY_HEAD_NODE', '0') == '1'
-print(f"Is head node: {is_head_node}")
-
-# Get URLs from environment or arguments
-local_rm_url = os.environ.get('REMOTE_RM_URL', '')
-worker_rm_url = args.worker_rm_url or os.environ.get('REMOTE_RM_URL_FOR_WORKER', '')
-
-# Set the appropriate URL based on node type
-if not is_head_node and worker_rm_url:
-    print(f"Worker node: using worker RM URL: {worker_rm_url}")
-    os.environ['REMOTE_RM_URL'] = worker_rm_url
-else:
-    print(f"Head node: using local RM URL: {local_rm_url}")
-
-# Import and run the training module
-from openrlhf.cli.train_ppo_ray import train
-print("Successfully imported training module")
-train()
-EOF
 
   # Submit the Ray job
   echo "Submitting Ray job with 127.0.0.1 for local network access..."
@@ -406,7 +364,7 @@ EOF
   
   ray job submit --address="http://127.0.0.1:8265" \
      --runtime-env-json='{"env_vars": {"REMOTE_RM_URL": "'"${REMOTE_RM_URL}"'", "REMOTE_RM_URL_FOR_WORKER": "'"${REMOTE_RM_URL_FOR_WORKER}"'", "RAY_HEAD_NODE": "1"}}' \
-     -- python3 "${TRAIN_SCRIPT}" \
+     -- python3 -m openrlhf.cli.train_ppo_ray \
      --worker_rm_url "${REMOTE_RM_URL_FOR_WORKER}" \
      --ref_num_nodes 2 \
      --ref_num_gpus_per_node 2 \

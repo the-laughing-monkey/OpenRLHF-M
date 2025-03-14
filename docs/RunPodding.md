@@ -137,7 +137,6 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ### 6. Clone the repository OpenRLHF-M repository and install it
 ```bash
 git clone https://github.com/OpenRLHF/OpenRLHF-M.git
-cd OpenRLHF-M
 ```
 
 # First explicitly install vLLM with the correct version
