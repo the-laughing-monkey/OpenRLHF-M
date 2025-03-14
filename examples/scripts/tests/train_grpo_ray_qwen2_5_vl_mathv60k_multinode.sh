@@ -151,7 +151,24 @@ echo "================================================================"
 if [ -z "${RAY_WORKER}" ] || [ "${RAY_WORKER}" = "0" ]; then
   # This is the head node
   echo "Starting Ray head node with Global Networking on ${HEAD_NODE_IP}"
-  ray start --head --node-ip-address ${HEAD_NODE_IP} --num-gpus 2 --port=6379 --dashboard-port=8265 --temp-dir ${RAY_TEMP_DIR} --dashboard-host=0.0.0.0
+  ray start --head --node-ip-address ${HEAD_NODE_IP} --num-gpus 2 --port=6379 --dashboard-port=8265 --temp-dir ${RAY_TEMP_DIR} --dashboard-host=0.0.0.0 --include-dashboard=true
+  
+  # Check which IPs Ray is listening on for dashboard port 8265
+  echo "================================================================"
+  echo "Checking all IPs that Ray is listening on port 8265..."
+  echo "Using netstat:"
+  netstat -tulpn | grep ":8265" || echo "netstat command failed or no matching ports found"
+  
+  echo "Using ss command:"
+  ss -tulpn | grep ":8265" || echo "ss command failed or no matching ports found"
+  
+  echo "Listening sockets from /proc/net/tcp (decimal port 8265 = hex port 2049):"
+  cat /proc/net/tcp | grep ":2049" || echo "No TCP socket info found for port 8265"
+  
+  echo "Dashboard process info:"
+  ps aux | grep -E "ray.*dashboard" || echo "No dashboard process found"
+  
+  echo "================================================================"
   
   echo "Head node started. Worker nodes can join using:"
   echo "ray start --address=${HEAD_NODE_IP}:${RAY_PORT} --num-gpus=2 --temp-dir $RAY_TEMP_DIR"
@@ -187,39 +204,47 @@ ray status
 # Only start the remote reward model server on the head node
 if [ "${HEAD_NODE:-0}" -eq "1" ]; then
   echo "Starting remote reward model server on head node (port ${REWARD_MODEL_PORT})..."
-  echo "Binding to host: ${HEAD_NODE_IP}"
+  echo "Binding to all interfaces (0.0.0.0) instead of specific host for wider accessibility"
   
-  python3 -m openrlhf.cli.serve_rm \
-      --host ${HEAD_NODE_IP} \
-      --port ${REWARD_MODEL_PORT} \
-      --reward_pretrain "${PRETRAIN_MODEL_PATH}" \
-      --normalize_reward \
-      --flash_attn \
-      --max_len 4096 \
-      --batch_size 16 \
-      --bf16 2>&1 | tee -a "${CUR_LOG_DIR}/remote_rm.log" &
+  python3 -m openrlhf.models.remote_rm.math_verifier \
+      --dataset "${DATASET_PATH}" \
+      --input_key message \
+      --prompt-template chatml 2>&1 | tee -a "${CUR_LOG_DIR}/remote_rm.log" &
   REMOTE_RM_PID=$!
   
   # Verify the reward model server is running
   echo "Waiting for reward model server to start (PID: ${REMOTE_RM_PID})..."
-  sleep 10
+  sleep 15
   if ! ps -p $REMOTE_RM_PID > /dev/null; then
     echo "ERROR: Reward model server failed to start"
     exit 1
   fi
   
-  # Set the reward model URL using the head node's internal DNS
-  export REMOTE_RM_URL="http://${HEAD_NODE_IP}:${REWARD_MODEL_PORT}/get_reward"
+  # On head node: Use 127.0.0.1 for local access to the reward model
+  # Workers will use the DNS name via REMOTE_RM_URL_FOR_WORKER
+  export REMOTE_RM_URL="http://127.0.0.1:${REWARD_MODEL_PORT}/get_reward"
+  export REMOTE_RM_URL_FOR_WORKER="http://${HEAD_NODE_IP}:${REWARD_MODEL_PORT}/get_reward"
+  
   echo "Reward model server started with PID: $REMOTE_RM_PID"
-  echo "Reward model is listening at: ${REMOTE_RM_URL}"
+  echo "Local reward model access URL (for head node): ${REMOTE_RM_URL}"
+  echo "Worker nodes will access reward model at: ${REMOTE_RM_URL_FOR_WORKER}"
   
-  # Test that the server is accessible (will show connection refused if not running)
-  echo "Testing reward model server connection..."
-  curl -s -o /dev/null -w "Connection test: %{http_code}\n" "${REMOTE_RM_URL}" || echo "Connection test failed, but continuing anyway"
+  # Test local access to reward model
+  echo "Testing local reward model access..."
+  curl -s -o /dev/null -w "Local reward model connectivity: %{http_code}\n" "${REMOTE_RM_URL}" || \
+    echo "Local connectivity test failed, but continuing"
   
-  # Show network interfaces where the server should be listening
+  # Simplified network debugging
+  echo "======= NETWORK INFO ======="
   echo "Network interfaces:"
-  ip addr | grep -E "inet.*${HEAD_NODE_IP%%.*}" | awk '{print $2}' || true
+  ip addr | grep "inet "
+  echo "Listening ports:"
+  netstat -tuln | grep -E ":${REWARD_MODEL_PORT}|:8265" || echo "No matching ports found"
+  echo "==========================="
+  
+  # Wait a bit longer for the server to fully initialize
+  echo "Waiting an additional 5 seconds for server to fully initialize..."
+  sleep 5
 fi
 
 # =============== TRAINING JOB SUBMISSION ===============
@@ -252,88 +277,181 @@ fi
 # Submit Ray job only from the head node using the dashboard port
 # Worker nodes don't need to submit jobs, they just join the cluster
 if [ "${HEAD_NODE:-0}" -eq "1" ]; then
-  echo "Using reward model URL: ${REMOTE_RM_URL}"
+  echo "Using local reward model URL: ${REMOTE_RM_URL}"
   
-  # CRITICAL CHANGE: Instead of using 'ray job submit', create a direct Python script
-  # with the necessary command and execute it directly
-  DIRECT_PYTHON_SCRIPT="${CUR_LOG_DIR}/direct_run_script.py"
+  # Display Ray connectivity info
+  echo "======= RAY DEBUG INFO ======="
+  echo "Ray status:"
+  ray status
+  echo "Ray dashboard connectivity:"
+  curl -s -o /dev/null -w "Ray dashboard (127.0.0.1): %{http_code}\n" "http://127.0.0.1:8265/api/jobs/"
+  echo "=========================="
   
-  echo "Creating direct execution script: ${DIRECT_PYTHON_SCRIPT}"
-  cat > "${DIRECT_PYTHON_SCRIPT}" << EOF
+  # Create a wrapper script that sets up environment correctly
+  TRAIN_SCRIPT="${CUR_LOG_DIR}/train_command.py"
+  echo "Creating training script: ${TRAIN_SCRIPT}"
+  cat > "${TRAIN_SCRIPT}" << 'EOF'
 #!/usr/bin/env python3
 import os
 import sys
-import ray
+import socket
+import argparse
 
-# Initialize ray to connect to the existing cluster
-ray.init(address='${HEAD_NODE_IP}:${RAY_PORT}', namespace='default')
-print("Successfully connected to Ray cluster")
+# Initialize environment
+hostname = socket.gethostname()
+print(f"Training script running on: {hostname}")
 
-# Set environment variables
-os.environ['REMOTE_RM_URL'] = '${REMOTE_RM_URL}'
-
-# Import and run the training module directly
-from openrlhf.cli.train_ppo_ray import train, argparse
-
-# Create argument parser and set arguments
+# Parse arguments for worker URL
 parser = argparse.ArgumentParser()
-args = parser.parse_args([
-    '--ref_num_nodes', '2',
-    '--ref_num_gpus_per_node', '2',
-    '--remote_rm_url', '${REMOTE_RM_URL}',
-    '--actor_num_nodes', '2',
-    '--actor_num_gpus_per_node', '2',
-    '--vllm_num_engines', '4',
-    '--vllm_tensor_parallel_size', '1',
-    '--colocate_all_models',
-    '--vllm_enable_sleep',
-    '--vllm_gpu_memory_utilization', '0.5',
-    '--vllm_sync_backend', 'gloo',
-    '--enable_prefix_caching',
-    '--pretrain', '${PRETRAIN_MODEL_PATH}',
-    '--save_path', '${SAVE_PATH}/${MODEL_NAME}',
-    '--micro_train_batch_size', '1',
-    '--train_batch_size', '128',
-    '--micro_rollout_batch_size', '1',
-    '--rollout_batch_size', '128',
-    '--temperature', '1.0',
-    '--n_samples_per_prompt', '4',
-    '--max_epochs', '1',
-    '--num_episodes', '2',
-    '--prompt_max_len', '4096',
-    '--max_samples', '1000',
-    '--generate_max_len', '8000',
-    '--advantage_estimator', 'group_norm',
-    '--use_kl_loss',
-    '--kl_estimator', 'k3',
-    '--init_kl_coef', '1e-3',
-    '--zero_stage', '3',
-    '--bf16',
-    '--actor_learning_rate', '5e-7',
-    '--prompt_data', '${DATASET_PATH}',
-    '--input_key', 'message',
-    '--normalize_reward',
-    '--flash_attn',
-    '--lambd', '1',
-    '--gamma', '1', 
-    '--gradient_checkpointing',
-    ${CHECKPOINT_ARGS//--/\'--\'},
-    ${WANDB_ARGS//--/\'--\'},
-    '--use_tensorboard', '${LOG_DIR}'
-])
+parser.add_argument('--worker_rm_url', default=None, help="RM URL for worker nodes")
+args, remaining = parser.parse_known_args()
 
-# Run the training
-train(args)
+# Remove our custom arg
+sys.argv = [sys.argv[0]] + remaining
+
+# Determine if this is head node or worker node (simple check)
+is_head_node = os.environ.get('RAY_HEAD_NODE', '0') == '1'
+print(f"Is head node: {is_head_node}")
+
+# Get URLs from environment or arguments
+local_rm_url = os.environ.get('REMOTE_RM_URL', '')
+worker_rm_url = args.worker_rm_url or os.environ.get('REMOTE_RM_URL_FOR_WORKER', '')
+
+# Set the appropriate URL based on node type
+if not is_head_node and worker_rm_url:
+    print(f"Worker node: using worker RM URL: {worker_rm_url}")
+    os.environ['REMOTE_RM_URL'] = worker_rm_url
+else:
+    print(f"Head node: using local RM URL: {local_rm_url}")
+
+# Import and run the training module
+from openrlhf.cli.train_ppo_ray import main
+print("Successfully imported training module")
+main()
 EOF
 
-  # Make the script executable
-  chmod +x "${DIRECT_PYTHON_SCRIPT}"
+  # Submit the Ray job
+  echo "Submitting Ray job with 127.0.0.1 for local network access..."
   
-  echo "Executing training directly (bypassing ray job submit)..."
-  python3 "${DIRECT_PYTHON_SCRIPT}" > >(tee -a "${CUR_LOG_DIR}/train.log") 2>&1 &
+  echo "===== SUBMISSION DETAILS ====="
+  echo "REMOTE_RM_URL: ${REMOTE_RM_URL}"
+  echo "REMOTE_RM_URL_FOR_WORKER: ${REMOTE_RM_URL_FOR_WORKER}" 
+  echo "TRAIN_SCRIPT: ${TRAIN_SCRIPT}"
+  echo "CHECKPOINT_ARGS: ${CHECKPOINT_ARGS}"
+  echo "============================="
+  
+  # Testing connection to Ray dashboard before job submission  
+  echo "Testing Ray dashboard connection before submission:"
+  curl -v http://127.0.0.1:8265/api/jobs/ -H "Content-Type: application/json" > "${CUR_LOG_DIR}/ray_test.log" 2>&1
+  echo "Dashboard request result code: $?"
+  
+  # Add a longer delay to ensure dashboard is fully initialized
+  echo "Waiting for Ray dashboard to be fully initialized (20 seconds)..."
+  echo "This delay is crucial to ensure the job submission endpoint is ready."
+  for i in {10..1}; do
+    echo "  $i seconds remaining..."
+    sleep 1
+  done
+  echo "Ready to submit test job now."
+  
+  # Create a simple test script
+  TEST_SCRIPT="${CUR_LOG_DIR}/test_job.py"
+  echo "Creating test script: ${TEST_SCRIPT}"
+  cat > "${TEST_SCRIPT}" << 'EOF'
+#!/usr/bin/env python3
+import os
+import socket
+import sys
+import time
+
+print("=" * 50)
+print("RAY TEST JOB - HEALTH CHECK")
+print("=" * 50)
+print(f"Hostname: {socket.gethostname()}")
+print(f"Current working directory: {os.getcwd()}")
+print(f"Python version: {sys.version}")
+print(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+print("Test job completed successfully!")
+print("=" * 50)
+EOF
+
+  # First submit a test job to verify the job submission system works
+  echo "Submitting a test job to verify the Ray job submission system..."
+  
+  ray job submit --address="http://127.0.0.1:8265" \
+    --runtime-env-json='{"env_vars": {"TEST_JOB": "1"}}' \
+    -- python3 "${TEST_SCRIPT}" > "${CUR_LOG_DIR}/test_job_output.log" 2>&1
+  
+  TEST_JOB_RESULT=$?
+  echo "Test job result code: ${TEST_JOB_RESULT}"
+  
+  if [ $TEST_JOB_RESULT -ne 0 ]; then
+    echo "WARNING: Test job submission failed. This may indicate issues with the Ray job submission system."
+    echo "Proceeding with main job submission anyway..."
+    
+    # Display test job output for debugging
+    echo "Test job log contents:"
+    cat "${CUR_LOG_DIR}/test_job_output.log"
+    echo "--------------------"
+    
+    # Add another delay before main job submission 
+    echo "Waiting an additional 10 seconds before main job submission..."
+    sleep 10
+  else
+    echo "Test job submission succeeded! Proceeding with main job submission."
+    sleep 5
+  fi
+  
+  echo "Submitting main training job now..."
+  
+  ray job submit --address="http://127.0.0.1:8265" \
+     --runtime-env-json='{"env_vars": {"REMOTE_RM_URL": "'"${REMOTE_RM_URL}"'", "REMOTE_RM_URL_FOR_WORKER": "'"${REMOTE_RM_URL_FOR_WORKER}"'", "RAY_HEAD_NODE": "1"}}' \
+     -- python3 "${TRAIN_SCRIPT}" \
+     --worker_rm_url "${REMOTE_RM_URL_FOR_WORKER}" \
+     --ref_num_nodes 2 \
+     --ref_num_gpus_per_node 2 \
+     --actor_num_nodes 2 \
+     --actor_num_gpus_per_node 2 \
+     --vllm_num_engines 4 \
+     --vllm_tensor_parallel_size 1 \
+     --colocate_all_models \
+     --vllm_enable_sleep \
+     --vllm_gpu_memory_utilization 0.5 \
+     --vllm_sync_backend gloo \
+     --enable_prefix_caching \
+     --pretrain ${PRETRAIN_MODEL_PATH} \
+     --save_path ${SAVE_PATH}/${MODEL_NAME} \
+     --micro_train_batch_size 1 \
+     --train_batch_size 128 \
+     --micro_rollout_batch_size 1 \
+     --rollout_batch_size 128 \
+     --temperature 1.0 \
+     --n_samples_per_prompt 4 \
+     --max_epochs 1 \
+     --num_episodes 2 \
+     --prompt_max_len 4096 \
+     --max_samples 1000 \
+     --generate_max_len 8000 \
+     --advantage_estimator group_norm \
+     --use_kl_loss \
+     --kl_estimator k3 \
+     --init_kl_coef 1e-3 \
+     --zero_stage 3 \
+     --bf16 \
+     --actor_learning_rate 5e-7 \
+     --prompt_data ${DATASET_PATH} \
+     --input_key message \
+     --normalize_reward \
+     --flash_attn \
+     --lambd 1 \
+     --gamma 1 \
+     --gradient_checkpointing \
+     ${CHECKPOINT_ARGS} \
+     ${WANDB_ARGS} \
+     --use_tensorboard ${LOG_DIR} > >(tee -a "${CUR_LOG_DIR}/train.log") 2>&1 &
   
   TRAIN_PID=$!
-  echo "Training job started with PID: $TRAIN_PID on head node"
+  echo "Job submitted with PID: $TRAIN_PID on head node"
   
   echo "Remote RM PID: $REMOTE_RM_PID" > "${CUR_LOG_DIR}/process_pids.txt"
   echo "Train PID: $TRAIN_PID" >> "${CUR_LOG_DIR}/process_pids.txt"
