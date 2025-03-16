@@ -69,7 +69,7 @@ Set these on both the head and worker nodes:
 export NCCL_NET_SOCKET_FAMILY=IPv4
 export NCCL_LAUNCH_MODE=GROUP
 export NCCL_IB_DISABLE=1
-export NCCL_SOCKET_IFNAME=eth0
+export NCCL_SOCKET_IFNAME=podnet1
 export NCCL_SOCKET_NTHREADS=1
 export NCCL_NSOCKS_PERTHREAD=1
 ```
