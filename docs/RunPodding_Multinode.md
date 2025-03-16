@@ -27,6 +27,39 @@ The updated multinode training script for OpenRLHF-M has been streamlined with t
 7. **Friendly Output:**
    - The script includes detailed, friendly output messages that report its progress at each step, including when it stops existing Ray instances, waits for head accessibility, and submits jobs.
 
+## Required Environment Variables
+
+Here's a clear breakdown of the environment variables needed for running the multinode training script:
+
+### For Head Node
+
+```bash
+# REQUIRED: Your RunPod ID (e.g., if your pod URL contains "abc123")
+export HEAD_POD_ID=abc123
+
+# OPTIONAL: Explicitly set this to 0 to indicate a head node (default behavior if unset)
+export RAY_WORKER=0
+
+# OPTIONAL: Enable WandB logging by providing your API key
+export WANDB_API_KEY=your_wandb_api_key_here
+
+# OPTIONAL: Enable Ray debugging mode
+export DEBUG_RAY=1
+```
+
+### For Worker Nodes
+
+```bash
+# REQUIRED: Set to 1 to indicate this is a worker node
+export RAY_WORKER=1
+
+# REQUIRED: The RunPod ID of the head node (must match the HEAD_POD_ID set on the head node)
+export HEAD_POD_ID=abc123
+
+# OPTIONAL: Enable Ray debugging mode (should match head node setting)
+export DEBUG_RAY=1
+```
+
 ## Setting Up Your Instances
 
 ### On the Head Node
@@ -62,9 +95,36 @@ The updated multinode training script for OpenRLHF-M has been streamlined with t
    - Wait until the head node (derived from `HEAD_POD_ID`) is reachable on the required port.
    - Join the Ray cluster.
 
+## Preparing the Dataset
+
+Before running the multinode training job, you need to prepare the dataset. This step should be done on the head node.
+
+As an example, we will download and prepare the MathV60K dataset using the following script in our OpenRLHF-M repository: examples/scripts/data_downloaders/download_mathv60k.py
+
+### Download and Prepare the MathV60K Dataset
+
+1. Create the datasets directory:
+```bash
+mkdir -p /data/datasets
+```
+
+2. Download and prepare the MathV60K dataset:
+```bash
+cd /data/OpenRLHF-M
+python examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+```
+
+This script will:
+- Download the dataset files from Hugging Face
+- Extract images to the specified directory
+- Process the JSONL file to update paths
+- Make the dataset ready for training
+
+The script provides detailed progress information and will tell you when the dataset is ready.
+
 ### Start the Training Job
 
-2. **Run the Script:**
+1. **Run the Script on Head Node:**
    ```bash
    cd /data/OpenRLHF-M
    bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode.sh
@@ -75,10 +135,6 @@ The updated multinode training script for OpenRLHF-M has been streamlined with t
    - Start the Ray head node on `0.0.0.0` and on the defined ports (default: 6379 for Ray, 8265 for the dashboard).
    - Launch the remote reward model server and wait until it responds.
    - Submit the training job to the Ray cluster.
-
-
-
-
 
 ## Accessing the Cluster and Logs
 
