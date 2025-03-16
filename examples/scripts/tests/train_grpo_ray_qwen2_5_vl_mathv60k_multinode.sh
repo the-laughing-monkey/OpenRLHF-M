@@ -29,11 +29,19 @@
 #   ./train_grpo_ray_qwen2_5_vl_mathv60k_multinode.sh
 #=============================================================================
 
-
 # Friendly banner
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!"
 echo "=== OpenRLHF-M MathV60K Multinode Training Script Start ==="
 echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+
+# Set NCCL environment variables for DNS resolution in RunPod Global Networking
+  echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
+export NCCL_NET_SOCKET_FAMILY=IPv4
+export NCCL_LAUNCH_MODE=GROUP
+export NCCL_IB_DISABLE=1
+export NCCL_SOCKET_IFNAME=eth0
+export NCCL_SOCKET_NTHREADS=1
+export NCCL_NSOCKS_PERTHREAD=1
 
 # Determine if this is a head or worker node.
 if [ -z "${RAY_WORKER}" ] || [ "${RAY_WORKER}" = "0" ]; then

@@ -303,7 +303,7 @@ watch -n 1 "nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilizat
 # or
 
 ```bash
-watch -n 1 "nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv,noheader,nounits"
+watch -n 1 "nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits | awk -F', ' '{ total += \$1; used += \$2 } END { printf \"Total Memory: %d MB, Used Memory: %d MB\\n\", total, used }'"
 ```
 
 ### 12. Monitoring and Managing Disk Space

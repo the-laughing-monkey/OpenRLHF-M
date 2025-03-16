@@ -63,6 +63,18 @@ export HEAD_POD_ID=abc123
 export DEBUG_RAY=1
 ```
 
+Set these on both the head and worker nodes:
+
+```bash
+export NCCL_NET_SOCKET_FAMILY=IPv4
+export NCCL_LAUNCH_MODE=GROUP
+export NCCL_IB_DISABLE=1
+export NCCL_SOCKET_IFNAME=eth0
+export NCCL_SOCKET_NTHREADS=1
+export NCCL_NSOCKS_PERTHREAD=1
+```
+
+
 ## Setting Up Your Instances
 
 ### On the Head Node
@@ -81,16 +93,6 @@ export DEBUG_RAY=1
      ```bash
      export DEBUG_RAY=1
      ```
-   - **Network Configuration for DeepSpeed/NCCL:** When using DeepSpeed with RunPod's Global Networking, you need to configure NCCL communication properly:
-     ```bash
-      export NCCL_LAUNCH_MODE=GROUP
-      export NCCL_DEBUG=INFO          # (or TRACE for more verbosity)
-      export NCCL_IB_DISABLE=1
-      export NCCL_SOCKET_IFNAME=eth0
-      export NCCL_SOCKET_NTHREADS=1
-      export NCCL_NSOCKS_PERTHREAD=1
-      export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:128"
-     ```
 
 ### On Worker Nodes
 
@@ -99,17 +101,6 @@ export DEBUG_RAY=1
    - Designate the node as a worker by setting:
      ```bash
      export RAY_WORKER=1
-     ```
-   - **Network Configuration for DeepSpeed/NCCL:** Use the same NCCL configuration as on the head node:
-     ```bash
-     # Add these to your environment before running the script
-      export NCCL_LAUNCH_MODE=GROUP
-      export NCCL_DEBUG=INFO          # (or TRACE for more verbosity)
-      export NCCL_IB_DISABLE=1
-      export NCCL_SOCKET_IFNAME=eth0
-      export NCCL_SOCKET_NTHREADS=1
-      export NCCL_NSOCKS_PERTHREAD=1
-      export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:128"
      ```
 
 2. **Run the Script:**
