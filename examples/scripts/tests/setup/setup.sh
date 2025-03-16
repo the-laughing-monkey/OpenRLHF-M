@@ -5,7 +5,26 @@
 # This script follows instructions from sections 4, 5, and 6 of the deployment guide.
 
 #############################
-# 1. Torch Installation (Section 5)
+# Set Working Root
+#############################
+
+WORKING_DIR="/data"
+
+#############################
+# 1. Install Core Python Packages (Section 4)
+#############################
+
+# Define the core required python packages
+PACKAGES="pip wheel packaging setuptools"
+
+echo "Installing core python packages: $PACKAGES"
+pip install $PACKAGES
+
+echo "Core python package installation complete."
+
+
+#############################
+# 2. Torch Installation (Section 5)
 #############################
 
 # Detect CUDA version using nvcc if available.
@@ -35,17 +54,6 @@ echo "Installing torch packages with command: $TORCH_INSTALL"
 # Execute the torch installation command.
 eval $TORCH_INSTALL
 
-#############################
-# 2. Install Additional Python Packages (Section 4)
-#############################
-
-# Define the remaining required python packages
-PACKAGES="kdown loralib loguru lightning-utilities jsonlines itsdangerous isort grpcio docker-pycreds dill blinker av absl-py tensorboard qwen_vl_utils pandas multiprocess levenshtein latex2sympy2_extended gitdb flask math-verify gitpython wandb transformers torchmetrics deepspeed datasets bitsandbytes accelerate transformers_stream_generator peft optimum openrlhf"
-
-echo "Installing additional packages: $PACKAGES"
-pip install $PACKAGES
-
-echo "Core python package installation complete."
 
 #############################
 # 3. Install vLLM and OpenRLHF (Section 6)
@@ -55,18 +63,16 @@ echo "Core python package installation complete."
 echo "Installing vLLM==0.7.3"
 pip install vllm==0.7.3
 
-# Determine the repository root directory
-if command -v git &> /dev/null; then
-    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+# Set repository directory in WORKING_DIR
+REPO_DIR="$WORKING_DIR/OpenRLHF-M"
+
+if [ ! -d "$REPO_DIR" ]; then
+    echo "Cloning OpenRLHF-M repository into $REPO_DIR"
+    git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git "$REPO_DIR"
 fi
 
-if [ -z "$REPO_ROOT" ]; then
-    # Fallback: assume this script is in examples/scripts/tests/setup and navigate up to the repo root
-    REPO_ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
-fi
-
-echo "Changing directory to repository root: $REPO_ROOT"
-cd "$REPO_ROOT"
+echo "Changing directory to repository: $REPO_DIR"
+cd "$REPO_DIR"
 
 # Install OpenRLHF (without the vLLM extra)
 echo "Installing OpenRLHF package"
@@ -79,5 +85,6 @@ pip install 'ray[default]'
 # Install flash-attention
 echo "Installing flash-attn with no build isolation"
 pip install flash-attn --no-build-isolation
+
 
 echo "Setup complete." 

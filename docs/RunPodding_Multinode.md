@@ -42,18 +42,6 @@ The updated multinode training script for OpenRLHF-M has been streamlined with t
      export DEBUG_RAY=1
      ```
 
-2. **Run the Script:**
-   ```bash
-   cd /data/OpenRLHF-M
-   bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode.sh
-   ```
-
-   The script will:
-   - Stop any existing Ray instances.
-   - Start the Ray head node on `0.0.0.0` and on the defined ports (default: 6379 for Ray, 8265 for the dashboard).
-   - Launch the remote reward model server and wait until it responds.
-   - Submit the training job to the Ray cluster.
-
 ### On Worker Nodes
 
 1. **Environment Variables:**
@@ -73,6 +61,22 @@ The updated multinode training script for OpenRLHF-M has been streamlined with t
    - Stop any existing Ray instances.
    - Wait until the head node (derived from `HEAD_POD_ID`) is reachable on the required port.
    - Join the Ray cluster.
+
+### Start the Training Job
+
+2. **Run the Script:**
+   ```bash
+   cd /data/OpenRLHF-M
+   bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode.sh
+   ```
+
+   The script will:
+   - Stop any existing Ray instances.
+   - Start the Ray head node on `0.0.0.0` and on the defined ports (default: 6379 for Ray, 8265 for the dashboard).
+   - Launch the remote reward model server and wait until it responds.
+   - Submit the training job to the Ray cluster.
+
+
 
 
 
