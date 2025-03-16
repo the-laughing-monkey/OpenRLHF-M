@@ -66,17 +66,38 @@ export DEBUG_RAY=1
 Set these on both the head and worker nodes:
 
 ```bash
-export NCCL_NET_SOCKET_FAMILY=IPv4
-export NCCL_LAUNCH_MODE=GROUP
+# Critical NCCL environment variables for proper networking in RunPod
+# Use priority-ordered interfaces with loopback first for local connections
+export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
 export NCCL_IB_DISABLE=1
-export NCCL_SOCKET_IFNAME=podnet1
-export NCCL_SOCKET_NTHREADS=1
-export NCCL_NSOCKS_PERTHREAD=1
+export NCCL_SOCKET_FAMILY=IPv4
+export NCCL_LAUNCH_MODE=GROUP
+export NCCL_DEBUG=INFO
+export NCCL_DEBUG_SUBSYS=ALL
+# Disable peer-to-peer as it can cause issues in container environments
+export NCCL_P2P_DISABLE=1
+# Ensure shared memory is enabled (this is default, but being explicit)
+export NCCL_SHM_DISABLE=0
+# Give DeepSpeed more time to initialize
+export DEEPSPEED_TIMEOUT=600
+# Required to avoid Flash Attention errors
 export FORCE_MODEL_INIT_TO_CUDA=1
 ```
 
-
 ## Setting Up Your Instances
+
+### Important Container Requirements
+
+When running in Docker containers (which RunPod pods are), ensure your container has sufficient shared memory by adding these flags when creating your pod:
+```bash
+--shm-size=1g --ulimit memlock=-1
+```
+
+These settings are critical for proper NCCL operation within containers. You can verify your shared memory size with:
+```bash
+df -h /dev/shm
+```
+A size of at least 1GB is recommended for NCCL.
 
 ### On the Head Node
 
