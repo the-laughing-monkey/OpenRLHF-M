@@ -43,7 +43,6 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
    - Container disk size (50GB is a good start).
    - Attach your volume by mounting it to `/data`.
    - Enable a public IP.
-   - Set Expose TCP Ports to expose the default port and the Ray ports: `22,6379,8265`
 
 6. Ensure that "ssh" and "start Jupyter Notebook" are checked, then click **Deploy**.
 
@@ -138,7 +137,6 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ### 6. Clone the repository OpenRLHF-M repository and install it
 ```bash
 git clone https://github.com/OpenRLHF/OpenRLHF-M.git
-cd OpenRLHF-M
 ```
 
 # First explicitly install vLLM with the correct version
@@ -305,7 +303,8 @@ watch -n 1 "nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilizat
 # or
 
 ```bash
-watch -n 1 "echo 'GPU   Total(MiB)   Used(MiB)'; nvidia-smi --query-gpu=index,memory.total,memory.used --format=csv,noheader,nounits | awk -F',' '{printf \"%-3s %-12s %-10s\n\", \$1, \$2, \$3}'"
+
+
 ```
 
 ### 12. Monitoring and Managing Disk Space
