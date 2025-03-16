@@ -16,9 +16,11 @@
 #   For worker nodes: Set RAY_WORKER=1 and also set HEAD_POD_ID.
 #
 #   Optionally, set DEBUG_RAY=1 to enable Ray debugging.
+#   Optionally, set EXPECTED_WORKERS=N to wait for N worker nodes to join.
 #
 # Example (head node):
 #   export HEAD_POD_ID=your-head-dns  # e.g., abc123 -> abc123.runpod.internal
+#   export EXPECTED_WORKERS=2         # Wait for 2 worker nodes to join
 #   ./train_grpo_ray_qwen2_5_vl_mathv60k_multinode.sh
 #
 # Example (worker node):
@@ -60,6 +62,12 @@ else
   WANDB_ARGS="--use_wandb ${WANDB_API_KEY} --wandb_run_name ${MODEL_NAME} --wandb_group \"openrlhf-m-training\""
 fi
 
+# Default to expecting at least 1 worker if not specified
+if [ -z "${EXPECTED_WORKERS}" ]; then
+  EXPECTED_WORKERS=1
+  echo "[INFO] EXPECTED_WORKERS not set. Defaulting to expecting 1 worker node."
+fi
+
 # Logging directory.
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_DIR="${SAVE_PATH}/${MODEL_NAME}/logs"
@@ -82,6 +90,10 @@ RAY_PORT="6379"
 DASHBOARD_PORT="8265"
 REWARD_MODEL_PORT="5000"
 
+# Create a PID file directory for worker tracking
+WORKER_PID_DIR="/tmp/openrlhf_workers"
+mkdir -p $WORKER_PID_DIR
+
 # Determine head node IP: on head node, use local interface; workers use HEAD_POD_ID DNS.
 if [ $IS_HEAD -eq 1 ]; then
   if [ -n "${HEAD_POD_ID}" ]; then
@@ -99,6 +111,18 @@ else
   HEAD_NODE_IP="${HEAD_POD_ID}.runpod.internal"
   echo "[INFO] Worker will connect to HEAD_NODE_IP: ${HEAD_NODE_IP}"
 fi
+
+# Function to cleanup worker processes
+cleanup_worker() {
+  echo "[WORKER NODE] Cleaning up worker processes..."
+  ray stop
+  rm -f $WORKER_PID_DIR/worker_${NODE_HOSTNAME}.pid
+  echo "[WORKER NODE] Worker node stopped and cleaned up."
+  exit 0
+}
+
+# Worker cleanup on exit
+trap cleanup_worker SIGINT SIGTERM
 
 # Head node operations.
 if [ $IS_HEAD -eq 1 ]; then
@@ -123,33 +147,78 @@ if [ $IS_HEAD -eq 1 ]; then
   echo "[HEAD NODE] Waiting for remote reward model server to initialize..."
   sleep 5
   
-  # Test reward model connectivity.
+  # Test reward model connectivity with correctly formatted JSON
   RETRY_COUNT=0
   MAX_RETRIES=10
   REWARD_MODEL_URL="http://127.0.0.1:${REWARD_MODEL_PORT}/get_reward"
-  until curl -s -o /dev/null -w "%{http_code}" "${REWARD_MODEL_URL}" | grep -q "200"; do
+  until curl -s -X POST -H "Content-Type: application/json" -d '{"query": ["test query"], "prompts": ["test problem"]}' -o /dev/null -w "%{http_code}" "${REWARD_MODEL_URL}" | grep -q "200"; do
     echo "[HEAD NODE] Waiting for reward model server at ${REWARD_MODEL_URL}... (attempt $((RETRY_COUNT+1)))"
     sleep 3
     RETRY_COUNT=$((RETRY_COUNT+1))
     if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
       echo "[ERROR] Reward model server did not respond after $MAX_RETRIES attempts. Exiting."
+      kill $REMOTE_RM_PID
       exit 1
     fi
   done
   echo "[HEAD NODE] Reward model server is responding."
+
+  # Wait for worker nodes to join
+  echo "[HEAD NODE] Waiting for worker nodes to join the cluster..."
+  WORKER_RETRY=0
+  MAX_WORKER_RETRIES=20
+  while true; do
+    echo "[HEAD NODE] Running ray status to check for workers:"
+    ray status
+    
+    # Count total active nodes from 'Active:' block until 'Pending:' is encountered and sum counts
+    ACTIVE_NODES=$(ray status | sed -n '/Active:/,/Pending:/p' | grep -E '^[[:space:]]*[0-9]+' | awk '{sum += $1} END {print sum}')
+    if [ -z "$ACTIVE_NODES" ]; then
+      ACTIVE_NODES=1  # Default to 1 if unable to parse (just the head node)
+    fi
+    WORKER_COUNT=$((ACTIVE_NODES - 1))
+    
+    echo "[HEAD NODE] Detected active nodes: $ACTIVE_NODES (head + $WORKER_COUNT workers)"
+    
+    if [ $WORKER_COUNT -ge $EXPECTED_WORKERS ]; then
+      echo "[HEAD NODE] All expected worker nodes ($EXPECTED_WORKERS) have joined the cluster."
+      break
+    fi
+    echo "[HEAD NODE] Waiting for worker nodes to join... ($WORKER_COUNT/$EXPECTED_WORKERS joined) (attempt $((WORKER_RETRY+1)))"
+    sleep 5
+    WORKER_RETRY=$((WORKER_RETRY+1))
+    if [ $WORKER_RETRY -ge $MAX_WORKER_RETRIES ]; then
+      echo "[WARNING] Not all expected worker nodes joined after $MAX_WORKER_RETRIES attempts. Proceeding anyway with $WORKER_COUNT workers."
+      break
+    fi
+  done
+
+  # Calculate GPU parameters based on detected worker count
+  # We need: actor_num_nodes * actor_num_gpus_per_node = vllm_num_engines * vllm_tensor_parallel_size
+  TOTAL_NODES=$((WORKER_COUNT + 1)) # Including head node
+  REF_NUM_NODES=$TOTAL_NODES
+  REF_NUM_GPUS_PER_NODE=2
+  ACTOR_NUM_NODES=$TOTAL_NODES
+  ACTOR_NUM_GPUS_PER_NODE=2
+  VLLM_NUM_ENGINES=$((ACTOR_NUM_NODES * ACTOR_NUM_GPUS_PER_NODE))
+  VLLM_TENSOR_PARALLEL_SIZE=1
+  
+  echo "[HEAD NODE] Detected $TOTAL_NODES total nodes (head + $WORKER_COUNT workers)"
+  echo "[HEAD NODE] Setting up job with: actor_num_nodes=$ACTOR_NUM_NODES, actor_num_gpus_per_node=$ACTOR_NUM_GPUS_PER_NODE"
+  echo "[HEAD NODE] vllm_num_engines=$VLLM_NUM_ENGINES, vllm_tensor_parallel_size=$VLLM_TENSOR_PARALLEL_SIZE"
 
   # Submit the training job.
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
   ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
-         --ref_num_nodes 2 \
-         --ref_num_gpus_per_node 2 \
+         --ref_num_nodes $REF_NUM_NODES \
+         --ref_num_gpus_per_node $REF_NUM_GPUS_PER_NODE \
          --remote_rm_url "${REWARD_MODEL_URL}" \
-         --actor_num_nodes 2 \
-         --actor_num_gpus_per_node 2 \
-         --vllm_num_engines 2 \
-         --vllm_tensor_parallel_size 1 \
+         --actor_num_nodes $ACTOR_NUM_NODES \
+         --actor_num_gpus_per_node $ACTOR_NUM_GPUS_PER_NODE \
+         --vllm_num_engines $VLLM_NUM_ENGINES \
+         --vllm_tensor_parallel_size $VLLM_TENSOR_PARALLEL_SIZE \
          --colocate_all_models \
          --vllm_enable_sleep \
          --vllm_gpu_memory_utilization 0.5 \
@@ -193,6 +262,11 @@ if [ $IS_HEAD -eq 1 ]; then
   echo "[HEAD NODE] Training job submitted with PID: $TRAIN_PID"
   echo "[HEAD NODE] Remote Reward Model running with PID: $REMOTE_RM_PID"
   echo "[HEAD NODE] Logs available in ${CUR_LOG_DIR}"
+  
+  echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+  echo "=== OpenRLHF-M Head Node Script Completed ==="
+  echo "=== Training job is now running. See logs for progress. ==="
+  echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # Worker node operations.
 else
@@ -206,10 +280,56 @@ else
     sleep 5
   done
   echo "[WORKER NODE] Head node is reachable. Joining the Ray cluster..."
-  ray start --address=${HEAD_NODE_IP}:${RAY_PORT} --temp-dir ~/.cache/ray
+  ray start --address=${HEAD_NODE_IP}:${RAY_PORT}
   echo "[WORKER NODE] Successfully joined the Ray cluster."
-fi
-
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-echo "=== OpenRLHF-M Multinode Training Script Completed ==="
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" 
+  
+  # Save worker PID for tracking
+  echo $$ > $WORKER_PID_DIR/worker_${NODE_HOSTNAME}.pid
+  
+  # Create a log file for worker status
+  WORKER_LOG="${CUR_LOG_DIR}/worker_${NODE_HOSTNAME}.log"
+  mkdir -p $(dirname "$WORKER_LOG")
+  
+  echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+  echo "=== OpenRLHF-M Worker Node Ready ==="
+  echo "=== Worker is now connected to the Ray cluster. ==="
+  echo "=== The worker process is running in the background. ==="
+  echo "=== Worker log: $WORKER_LOG ==="
+  echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+  
+  # Print worker management instructions
+  echo "To check the status of this worker node:"
+  echo "  ray status"
+  echo ""
+  echo "To stop this worker node:"
+  echo "  ray stop"
+  echo "  # or kill the worker process:"
+  echo "  kill $(cat $WORKER_PID_DIR/worker_${NODE_HOSTNAME}.pid)"
+  echo ""
+  
+  # Fully detach the worker process by creating a background job monitoring Ray
+  # and redirecting all output to the log file
+  (
+    # Print startup message to the log
+    echo "[WORKER NODE] Ray worker started in background at $(date)" > "$WORKER_LOG"
+    echo "[WORKER NODE] Worker PID: $$" >> "$WORKER_LOG"
+    
+    # Monitor Ray status in a loop
+    while ray status >> "$WORKER_LOG" 2>&1; do
+      echo "[WORKER NODE] Still active at $(date). Will check again in 60 seconds." >> "$WORKER_LOG"
+      sleep 60
+    done
+    
+    echo "[WORKER NODE] Ray process has stopped at $(date). Worker node process will exit." >> "$WORKER_LOG"
+    
+    # Cleanup
+    ray stop >> "$WORKER_LOG" 2>&1
+    rm -f $WORKER_PID_DIR/worker_${NODE_HOSTNAME}.pid
+    echo "[WORKER NODE] Worker node stopped and cleaned up." >> "$WORKER_LOG"
+  ) &
+  
+  disown
+  
+  # Exit the foreground script immediately
+  exit 0
+fi 
