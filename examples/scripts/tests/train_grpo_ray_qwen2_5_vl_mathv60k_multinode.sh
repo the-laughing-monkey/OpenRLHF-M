@@ -102,14 +102,14 @@ REWARD_MODEL_PORT="5000"
 WORKER_PID_DIR="/tmp/openrlhf_workers"
 mkdir -p $WORKER_PID_DIR
 
-# Determine head node IP: on head node, use local interface; workers use HEAD_POD_ID DNS.
+# Determine head node IP: on head node, use HEAD_POD_ID DNS; workers use HEAD_POD_ID DNS.
 if [ $IS_HEAD -eq 1 ]; then
-  if [ -n "${HEAD_POD_ID}" ]; then
+  if [ -z "${HEAD_POD_ID}" ]; then
+    echo "[ERROR] HEAD_POD_ID must be set for head node when using RunPod Global Networking. Exiting."
+    exit 1
+  else
     HEAD_NODE_IP="${HEAD_POD_ID}.runpod.internal"
     echo "[INFO] HEAD_POD_ID provided. Derived HEAD_NODE_IP: ${HEAD_NODE_IP}"
-  else
-    HEAD_NODE_IP="127.0.0.1"
-    echo "[INFO] HEAD_POD_ID not set. Using HEAD_NODE_IP: ${HEAD_NODE_IP}"
   fi
 else
   if [ -z "${HEAD_POD_ID}" ]; then
