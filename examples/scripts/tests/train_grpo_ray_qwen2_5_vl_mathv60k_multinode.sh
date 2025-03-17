@@ -243,6 +243,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --vllm_tensor_parallel_size $VLLM_TENSOR_PARALLEL_SIZE \
          --colocate_all_models \
          --vllm_enable_sleep \
+         --enforce_eager \
          --vllm_gpu_memory_utilization 0.5 \
          --vllm_sync_backend gloo \
          --enable_prefix_caching \
