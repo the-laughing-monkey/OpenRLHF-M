@@ -232,7 +232,7 @@ if [ $IS_HEAD -eq 1 ]; then
 
   # Submit the training job.
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
-  ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" --no-wait \
+  ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes $REF_NUM_NODES \
@@ -245,7 +245,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --colocate_all_models \
          --vllm_enable_sleep \
          --vllm_gpu_memory_utilization 0.5 \
-         --vllm_sync_backend gloo \
+         --vllm_sync_backend nccl \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
