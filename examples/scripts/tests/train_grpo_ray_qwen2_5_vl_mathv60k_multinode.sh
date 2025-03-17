@@ -42,8 +42,8 @@ export NCCL_SOCKET_FAMILY=IPv4
 export NCCL_LAUNCH_MODE=GROUP
 export NCCL_DEBUG=INFO
 export NCCL_DEBUG_SUBSYS=ALL
-#export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
-#export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
+export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
+export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
 export DEEPSPEED_TIMEOUT=60   # Add timeout for DeepSpeed initialization
 
 # Check and report shared memory size - critical for NCCL in containers
@@ -258,6 +258,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --max_epochs 1 \
          --num_episodes 2 \
          --prompt_max_len 4096 \
+         --max_len 32768 \
          --max_samples 1000 \
          --generate_max_len 8000 \
          --advantage_estimator group_norm \
