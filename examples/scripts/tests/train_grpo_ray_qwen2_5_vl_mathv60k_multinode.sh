@@ -47,16 +47,25 @@ fi
 
 # Set NCCL environment variables for DNS resolution in RunPod Global Networking
 echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
-export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
-#export NCCL_SOCKET_IFNAME=eth0,podnet1
+#export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
+#export NCCL_IB_DISABLE=1
+#export NCCL_SOCKET_FAMILY=IPv4
+#export NCCL_LAUNCH_MODE=GROUP
+#export NCCL_DEBUG=INFO
+#export NCCL_DEBUG_SUBSYS=ALL
+#export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
+#export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
+#export DEEPSPEED_TIMEOUT=60   # Add timeout for DeepSpeed initialization
+# Test
+export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
 export NCCL_SOCKET_FAMILY=IPv4
 export NCCL_LAUNCH_MODE=GROUP
 export NCCL_DEBUG=INFO
 export NCCL_DEBUG_SUBSYS=ALL
-export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
+#export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
 export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
-export DEEPSPEED_TIMEOUT=60   # Add timeout for DeepSpeed initialization
+export DEEPSPEED_TIMEOUT=600   # Add timeout for DeepSpeed initialization
 
 # Check and report shared memory size - critical for NCCL in containers
 echo "[INFO] Checking shared memory size (should be at least 1GB for NCCL):"
