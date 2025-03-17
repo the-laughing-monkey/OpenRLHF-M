@@ -240,8 +240,8 @@ if [ $IS_HEAD -eq 1 ]; then
          --remote_rm_url "${REWARD_MODEL_URL}" \
          --actor_num_nodes $ACTOR_NUM_NODES \
          --actor_num_gpus_per_node $ACTOR_NUM_GPUS_PER_NODE \
-         --vllm_num_engines $VLLM_NUM_ENGINES \
-         --vllm_tensor_parallel_size $VLLM_TENSOR_PARALLEL_SIZE \
+         --vllm_num_engines 2 \
+         --vllm_tensor_parallel_size 2 \
          --colocate_all_models \
          --vllm_enable_sleep \
          --vllm_gpu_memory_utilization 0.5 \
