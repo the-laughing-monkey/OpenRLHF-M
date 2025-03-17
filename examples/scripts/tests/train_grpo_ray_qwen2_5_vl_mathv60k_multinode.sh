@@ -235,11 +235,11 @@ if [ $IS_HEAD -eq 1 ]; then
   ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
-         --ref_num_nodes $REF_NUM_NODES \
-         --ref_num_gpus_per_node $REF_NUM_GPUS_PER_NODE \
+         --ref_num_nodes 2 \
+         --ref_num_gpus_per_node 2 \
          --remote_rm_url "${REWARD_MODEL_URL}" \
-         --actor_num_nodes $ACTOR_NUM_NODES \
-         --actor_num_gpus_per_node $ACTOR_NUM_GPUS_PER_NODE \
+         --actor_num_nodes 2 \
+         --actor_num_gpus_per_node 2 \
          --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 2 \
          --colocate_all_models \
