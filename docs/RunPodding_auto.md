@@ -191,7 +191,7 @@ export WANDB_API_KEY=your_api_key_here
 
 3. Run the adjusted training script:
 ```bash
-bash train_ppo_ray_qwen2_5_vl_mathv60k.sh
+bash my_train_script.sh
 ```
 
 4. **Important Disk Space Considerations:**
