@@ -271,7 +271,6 @@ if [ $IS_HEAD -eq 1 ]; then
          --input_key message \
          --normalize_reward \
          --flash_attn \
-         --enforce_eager \
          --lambd 1 \
          --gamma 1 \
          --gradient_checkpointing \
