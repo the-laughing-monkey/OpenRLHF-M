@@ -34,8 +34,19 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!"
 echo "=== OpenRLHF-M MathV60K Multinode Training Script Start ==="
 echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
+# Check if we're running in debug mode
+if [ -n "${DEBUG_RAY}" ]; then
+  echo "[INFO] Ray debugging enabled."
+  export RAY_DEBUG=legacy
+  RAY_DEBUG_ARGS="RAY_DEBUG=legacy"
+  RAY_DEBUG_OPTIONS="--ray-debugger-external"
+else
+  RAY_DEBUG_ARGS=""
+  RAY_DEBUG_OPTIONS=""
+fi
+
 # Set NCCL environment variables for DNS resolution in RunPod Global Networking
-  echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
+echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
 export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
 #export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
@@ -97,16 +108,6 @@ LOG_DIR="${SAVE_PATH}/${MODEL_NAME}/logs"
 CUR_LOG_DIR="${LOG_DIR}/${TIMESTAMP}"
 mkdir -p "${CUR_LOG_DIR}"
 echo "[INFO] Log directory: ${CUR_LOG_DIR}"
-
-# Ray debugging options.
-if [ -n "${DEBUG_RAY}" ]; then
-  echo "[INFO] Ray debugging enabled."
-  RAY_DEBUG_ARGS="RAY_DEBUG=legacy"
-  RAY_DEBUG_OPTIONS="--ray-debugger-external"
-else
-  RAY_DEBUG_ARGS=""
-  RAY_DEBUG_OPTIONS=""
-fi
 
 # Define ports.
 RAY_PORT="6379"
@@ -303,7 +304,7 @@ else
     sleep 5
   done
   echo "[WORKER NODE] Head node is reachable. Joining the Ray cluster..."
-  ray start --address=${HEAD_NODE_IP}:${RAY_PORT}
+  ${RAY_DEBUG_ARGS} ray start --address=${HEAD_NODE_IP}:${RAY_PORT} ${RAY_DEBUG_OPTIONS}
   echo "[WORKER NODE] Successfully joined the Ray cluster."
   
   # Save worker PID for tracking
