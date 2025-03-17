@@ -84,6 +84,34 @@ export DEEPSPEED_TIMEOUT=600
 export FORCE_MODEL_INIT_TO_CUDA=1
 ```
 
+## Preparing the Dataset
+
+Before running the multinode training job, you need to prepare the dataset. This step should be done on the head node.
+
+As an example, we will download and prepare the MathV60K dataset using the following script in our OpenRLHF-M repository: examples/scripts/data_downloaders/download_mathv60k.py
+
+### Download and Prepare the MathV60K Dataset
+
+1. Create the datasets directory:
+```bash
+mkdir -p /data/datasets
+```
+
+2. Download and prepare the MathV60K dataset:
+```bash
+cd /data/OpenRLHF-M
+python examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+```
+
+This script will:
+- Download the dataset files from Hugging Face
+- Extract images to the specified directory
+- Process the JSONL file to update paths
+- Make the dataset ready for training
+
+The script provides detailed progress information and will tell you when the dataset is ready.
+
+
 ## Setting Up Your Instances
 
 ### Important Container Requirements
@@ -137,32 +165,7 @@ A size of at least 1GB is recommended for NCCL.
    - Join the Ray cluster.
    - Return control to your terminal while the Ray worker process runs in the background.
 
-## Preparing the Dataset
 
-Before running the multinode training job, you need to prepare the dataset. This step should be done on the head node.
-
-As an example, we will download and prepare the MathV60K dataset using the following script in our OpenRLHF-M repository: examples/scripts/data_downloaders/download_mathv60k.py
-
-### Download and Prepare the MathV60K Dataset
-
-1. Create the datasets directory:
-```bash
-mkdir -p /data/datasets
-```
-
-2. Download and prepare the MathV60K dataset:
-```bash
-cd /data/OpenRLHF-M
-python examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
-```
-
-This script will:
-- Download the dataset files from Hugging Face
-- Extract images to the specified directory
-- Process the JSONL file to update paths
-- Make the dataset ready for training
-
-The script provides detailed progress information and will tell you when the dataset is ready.
 
 ### Start the Training Job
 

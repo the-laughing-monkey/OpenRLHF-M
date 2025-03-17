@@ -90,7 +90,7 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 
 ### 7. (Optional) Set Your WandB API Key
 
-If you wish to use Weights & Biases (wandb) for experiment tracking, consider setting your API key:
+If you wish to use Weights & Biases (wandb) for experiment tracking, set your API key:
 1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
 2. On your pod, run:
 ```bash
