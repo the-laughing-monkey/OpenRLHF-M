@@ -15,7 +15,7 @@ WORKING_DIR="/data"
 #############################
 
 # Define the core required python packages
-PACKAGES="pip wheel packaging setuptools"
+PACKAGES="pip wheel packaging setuptools huggingface_hub"
 
 echo "Upgrading pip"
 pip install --upgrade pip

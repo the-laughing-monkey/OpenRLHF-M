@@ -161,7 +161,7 @@ If you wish to use Weights & Biases (wandb) for experiment tracking, consider se
 1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
 2. On your pod, run:
 ```bash
-   wandb login YOUR_WANDB_API_KEY
+   export WANDB_API_KEY=YOUR_WANDB_API_KEY
 ```
 This step is optional but recommended for more integrated experiment monitoring.
 
@@ -192,13 +192,14 @@ Before running a training job, you'll need to prepare the dataset:
 
 1. Create the datasets directory:
 ```bash
-mkdir -p /data/datasets
+  mkdir -p /data/datasets
 ```
 
 2. Download and prepare the MathV60K dataset:
 ```bash
-cd /data/OpenRLHF-M
-python examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+  cd /data/OpenRLHF-M
+  pip install huggingface_hub
+  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
 This script will:
