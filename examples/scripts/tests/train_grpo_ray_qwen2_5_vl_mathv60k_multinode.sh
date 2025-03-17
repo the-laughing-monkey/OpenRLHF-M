@@ -236,13 +236,12 @@ if [ $IS_HEAD -eq 1 ]; then
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 2 \
-         --ref_num_gpus_per_node 2 \
+         --ref_num_gpus_per_node 1 \
          --remote_rm_url "${REWARD_MODEL_URL}" \
          --actor_num_nodes 2 \
-         --actor_num_gpus_per_node 2 \
+         --actor_num_gpus_per_node 1 \
          --vllm_num_engines 2 \
-         --vllm_tensor_parallel_size 2 \
-         --colocate_all_models \
+         --vllm_tensor_parallel_size 1 \
          --vllm_enable_sleep \
          --vllm_gpu_memory_utilization 0.5 \
          --vllm_sync_backend nccl \
