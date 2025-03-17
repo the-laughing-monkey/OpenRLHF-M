@@ -231,6 +231,7 @@ if [ $IS_HEAD -eq 1 ]; then
   echo "[HEAD NODE] vllm_num_engines=$VLLM_NUM_ENGINES, vllm_tensor_parallel_size=$VLLM_TENSOR_PARALLEL_SIZE"
 
   # Submit the training job.
+  # Settings only train on a single node and not both:
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
   ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
