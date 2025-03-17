@@ -231,16 +231,15 @@ if [ $IS_HEAD -eq 1 ]; then
   echo "[HEAD NODE] vllm_num_engines=$VLLM_NUM_ENGINES, vllm_tensor_parallel_size=$VLLM_TENSOR_PARALLEL_SIZE"
 
   # Submit the training job.
-  # Settings only train on a single node and not both:
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
   ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
-         --ref_num_nodes 1 \
-         --ref_num_gpus_per_node 2 \
+         --ref_num_nodes 2 \
+         --ref_num_gpus_per_node 1 \
          --remote_rm_url "${REWARD_MODEL_URL}" \
-         --actor_num_nodes 1 \
-         --actor_num_gpus_per_node 2 \
+         --actor_num_nodes 2 \
+         --actor_num_gpus_per_node 1 \
          --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 1 \
          --colocate_all_models \
