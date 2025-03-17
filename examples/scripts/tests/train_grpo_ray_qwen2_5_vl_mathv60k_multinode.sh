@@ -36,8 +36,8 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # Set NCCL environment variables for DNS resolution in RunPod Global Networking
   echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
-#export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
-export NCCL_SOCKET_IFNAME=eth0,podnet1
+export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
+#export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
 export NCCL_SOCKET_FAMILY=IPv4
 export NCCL_LAUNCH_MODE=GROUP
@@ -244,7 +244,6 @@ if [ $IS_HEAD -eq 1 ]; then
          --vllm_tensor_parallel_size $VLLM_TENSOR_PARALLEL_SIZE \
          --colocate_all_models \
          --vllm_enable_sleep \
-         --enforce_eager \
          --vllm_gpu_memory_utilization 0.5 \
          --vllm_sync_backend gloo \
          --enable_prefix_caching \
