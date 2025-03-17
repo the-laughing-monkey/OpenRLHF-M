@@ -36,7 +36,8 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # Set NCCL environment variables for DNS resolution in RunPod Global Networking
   echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
-export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
+#export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
+export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
 export NCCL_SOCKET_FAMILY=IPv4
 export NCCL_LAUNCH_MODE=GROUP
@@ -258,7 +259,6 @@ if [ $IS_HEAD -eq 1 ]; then
          --max_epochs 1 \
          --num_episodes 2 \
          --prompt_max_len 4096 \
-         --max_len 32768 \
          --max_samples 1000 \
          --generate_max_len 8000 \
          --advantage_estimator group_norm \
