@@ -232,9 +232,9 @@ if [ $IS_HEAD -eq 1 ]; then
 
   # Submit the training job.
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
-  ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
+  ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" --no-wait \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
-     -- python -m openrlhf.cli.train_ppo_ray \
+     -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes $REF_NUM_NODES \
          --ref_num_gpus_per_node $REF_NUM_GPUS_PER_NODE \
          --remote_rm_url "${REWARD_MODEL_URL}" \
