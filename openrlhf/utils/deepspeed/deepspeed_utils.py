@@ -11,12 +11,18 @@ def get_train_ds_config(
     grad_accum_dtype=None,
     overlap_comm=False,
 ):
-    device = "cpu" if offload else "none"
+    if stage == 3:
+        device = "none"
+        adam_device = "none"
+    else:
+        device = "cpu" if offload else "none"
+        adam_device = "cpu" if adam_offload else "none"
+
     zero_opt_dict = {
         "stage": stage,
         "offload_param": {"device": device},
         "offload_optimizer": {
-            "device": "cpu" if adam_offload else "none",
+            "device": adam_device,
             "pin_memory": True,
         },
         "sub_group_size": "auto",
@@ -30,6 +36,10 @@ def get_train_ds_config(
         "zero_quantized_weights": False,
         "zero_quantized_gradients": False,
     }
+
+    if stage == 3:
+        zero_opt_dict["init_on_gpu"] = True
+
     if overlap_comm:
         zero_opt_dict["overlap_comm"] = True
         zero_opt_dict["contiguous_gradients"] = True
