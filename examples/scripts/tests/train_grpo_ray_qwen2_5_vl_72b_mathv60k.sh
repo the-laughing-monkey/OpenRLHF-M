@@ -21,9 +21,9 @@
 # Set environment variables for paths and model configuration
 export WORKSPACE_DIR="$(pwd)"
 export DATASET_PATH="/data/datasets/VerMulti/mathv60k_message.jsonl"
-export PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-72B-Instruct"
+export PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-7B-Instruct"
 export SAVE_PATH="./checkpoints" 
-export MODEL_NAME="qwen2.5-vl-72b-ins-mathvista-grpo"
+export MODEL_NAME="qwen2.5-vl-7b-ins-mathvista-grpo"
 export WANDB_DIR="${WORKSPACE_DIR}"  
 
 # Check if WANDB_API_KEY exists in environment
@@ -155,8 +155,8 @@ ray job submit --address="http://127.0.0.1:8265" \
    --remote_rm_url http://127.0.0.1:5000/get_reward \
    --actor_num_nodes 1 \
    --actor_num_gpus_per_node 8 \
-   --vllm_num_engines 4 \
-   --vllm_tensor_parallel_size 4 \
+   --vllm_num_engines 8 \
+   --vllm_tensor_parallel_size 1 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_sync_backend nccl \
