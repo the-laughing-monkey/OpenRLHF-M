@@ -84,6 +84,10 @@ class Actor(nn.Module):
                 torch_dtype=torch.bfloat16 if bf16 else "auto",
                 device_map=device_map,
             )
+            
+            # Explicitly move model to GPU if flash_attention_2 is requested to avoid initialization issues
+            if use_flash_attention_2 and device_map is None:
+                self.model = self.model.to("cuda")
 
             # LoRA
             if lora_rank > 0:
