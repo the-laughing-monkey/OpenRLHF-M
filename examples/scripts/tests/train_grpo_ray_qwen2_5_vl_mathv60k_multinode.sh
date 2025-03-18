@@ -240,7 +240,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --remote_rm_url "${REWARD_MODEL_URL}" \
          --actor_num_nodes 2 \
          --actor_num_gpus_per_node 2 \
-         --vllm_num_engines 4 \
+         --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 1 \
          --colocate_all_models \
          --vllm_enable_sleep \
@@ -264,6 +264,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --use_kl_loss \
          --kl_estimator k3 \
          --init_kl_coef 1e-3 \
+         --zero_stage 3 \
          --bf16 \
          --actor_learning_rate 5e-7 \
          --prompt_data ${DATASET_PATH} \
