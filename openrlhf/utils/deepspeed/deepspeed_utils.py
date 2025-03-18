@@ -11,12 +11,16 @@ def get_train_ds_config(
     grad_accum_dtype=None,
     overlap_comm=False,
 ):
-    device = "cpu" if offload else "none"
+    # For stage 3, always set device to "none" to keep parameters on GPU
+    # This is crucial for flash attention which requires params on GPU
+    device = "none" if stage == 3 else ("cpu" if offload else "none")
+    adam_device = "cpu" if adam_offload else "none"
+    
     zero_opt_dict = {
         "stage": stage,
         "offload_param": {"device": device},
         "offload_optimizer": {
-            "device": "cpu" if adam_offload else "none",
+            "device": adam_device,
             "pin_memory": True,
         },
         "sub_group_size": "auto",
