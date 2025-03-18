@@ -42,7 +42,7 @@ mkdir -p openrlhf-docker && cd openrlhf-docker
 
 # Create the Dockerfile
 cat > Dockerfile << 'EOF'
-FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-devel
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn8-devel
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -61,9 +61,9 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir \
     pip wheel packaging setuptools \
     huggingface_hub \
-    ray[default]==2.9.0 \
+    ray[default] \
     vllm==0.7.3 \
-    flash-attn==2.5.5 \
+    flash-attn --no-build-isolation \
     wandb
 
 # Clone OpenRLHF-M repository
