@@ -173,7 +173,7 @@ if [ $IS_HEAD -eq 1 ]; then
   # Test reward model connectivity with correctly formatted JSON
   RETRY_COUNT=0
   MAX_RETRIES=15
-  REWARD_MODEL_URL="http://127.0.0.1:${REWARD_MODEL_PORT}/get_reward"
+  REWARD_MODEL_URL="http://${HEAD_NODE_IP}:${REWARD_MODEL_PORT}/get_reward"
   until curl -s -X POST -H "Content-Type: application/json" -d '{"query": ["test query"], "prompts": ["test problem"]}' -o /dev/null -w "%{http_code}" "${REWARD_MODEL_URL}" | grep -q "200"; do
     echo "[HEAD NODE] Waiting for reward model server at ${REWARD_MODEL_URL}... (attempt $((RETRY_COUNT+1)))"
     sleep 3

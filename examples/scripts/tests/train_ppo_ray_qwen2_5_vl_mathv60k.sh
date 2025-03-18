@@ -166,7 +166,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_gpu_memory_utilization 0.5 \
-   --vllm_sync_backend gloo \
+   --vllm_sync_backend nccl \
    --enable_prefix_caching \
    --pretrain ${PRETRAIN_MODEL_PATH} \
    --save_path ${SAVE_PATH}/${MODEL_NAME} \
