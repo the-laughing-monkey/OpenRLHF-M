@@ -34,17 +34,6 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!"
 echo "=== OpenRLHF-M MathV60K Multinode Training Script Start ==="
 echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
-# Check if we're running in debug mode
-if [ -n "${DEBUG_RAY}" ]; then
-  echo "[INFO] Ray debugging enabled."
-  export RAY_DEBUG=legacy
-  RAY_DEBUG_ARGS="RAY_DEBUG=legacy"
-  RAY_DEBUG_OPTIONS="--ray-debugger-external"
-else
-  RAY_DEBUG_ARGS=""
-  RAY_DEBUG_OPTIONS=""
-fi
-
 # Set NCCL environment variables for DNS resolution in RunPod Global Networking
 echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
 export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
@@ -151,10 +140,10 @@ trap cleanup_worker SIGINT SIGTERM
 if [ $IS_HEAD -eq 1 ]; then
   echo "-----------------------------------------------------------"
   echo "[HEAD NODE] Stopping any existing Ray instances..."
-  ${RAY_DEBUG_ARGS} ray stop
+  ray stop
 
   echo "[HEAD NODE] Starting Ray head node..."
-  ${RAY_DEBUG_ARGS} ray start --head --node-ip-address 0.0.0.0 --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --temp-dir ~/.cache/ray ${RAY_DEBUG_OPTIONS}
+  ray start --head --node-ip-address 0.0.0.0 --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --temp-dir ~/.cache/ray 
   
   echo "[HEAD NODE] Head node started. Waiting 5 seconds for cluster stabilization..."
   sleep 5
@@ -302,7 +291,7 @@ else
     sleep 5
   done
   echo "[WORKER NODE] Head node is reachable. Joining the Ray cluster..."
-  ${RAY_DEBUG_ARGS} ray start --address=${HEAD_NODE_IP}:${RAY_PORT} ${RAY_DEBUG_OPTIONS}
+  ray start --address=${HEAD_NODE_IP}:${RAY_PORT} 
   echo "[WORKER NODE] Successfully joined the Ray cluster."
   
   # Save worker PID for tracking
