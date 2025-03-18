@@ -16,7 +16,7 @@ def get_train_ds_config(
         "stage": stage,
         "offload_param": {"device": device},
         "offload_optimizer": {
-            "device": adam_device,
+            "device": "cpu" if adam_offload else "none",
             "pin_memory": True,
         },
         "sub_group_size": "auto",
