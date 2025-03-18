@@ -99,6 +99,9 @@ def get_llm_for_sequence_regression(
     else:
         nf4_config = None
 
+    if use_flash_attention_2 and device_map is None:
+        device_map = "auto"
+
     model = cls_class.from_pretrained(
         model_name_or_path,
         config=config,
