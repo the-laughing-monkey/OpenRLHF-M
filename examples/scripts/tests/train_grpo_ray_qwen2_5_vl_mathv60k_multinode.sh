@@ -270,6 +270,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --prompt_data ${DATASET_PATH} \
          --input_key message \
          --normalize_reward \
+         --adam_offload \
          --flash_attn \
          --lambd 1 \
          --gamma 1 \
