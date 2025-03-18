@@ -244,7 +244,6 @@ if [ $IS_HEAD -eq 1 ]; then
          --vllm_tensor_parallel_size 1 \
          --colocate_all_models \
          --vllm_enable_sleep \
-         --vllm_gpu_memory_utilization 0.5 \
          --vllm_sync_backend nccl \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
