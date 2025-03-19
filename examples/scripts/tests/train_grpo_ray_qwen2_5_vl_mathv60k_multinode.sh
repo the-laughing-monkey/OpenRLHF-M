@@ -36,15 +36,15 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # Set NCCL environment variables for DNS resolution in RunPod Global Networking
 echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
-export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
+export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
-export NCCL_SOCKET_FAMILY=IPv4
-export NCCL_LAUNCH_MODE=GROUP
+#export NCCL_SOCKET_FAMILY=IPv4
+#export NCCL_LAUNCH_MODE=GROUP
 export NCCL_DEBUG=TRACE
 export NCCL_DEBUG_SUBSYS=ALL
-export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
-export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
-export DEEPSPEED_TIMEOUT=60   # Add timeout for DeepSpeed initialization
+#export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
+#export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
+#export DEEPSPEED_TIMEOUT=60   # Add timeout for DeepSpeed initialization
 
 # Check and report shared memory size - critical for NCCL in containers
 echo "[INFO] Checking shared memory size (should be at least 1GB for NCCL):"
@@ -232,7 +232,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 2 \
          --vllm_enable_sleep \
-         --vllm_sync_backend gloo \
+         --vllm_sync_backend nccl \
          --vllm_sync_with_ray \
          --colocate_all_models \
          --enable_prefix_caching \
