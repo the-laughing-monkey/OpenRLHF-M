@@ -38,7 +38,7 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Global Networking."
 export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
-#export NCCL_SOCKET_FAMILY=IPv4
+export NCCL_SOCKET_FAMILY=IPv4
 #export NCCL_LAUNCH_MODE=GROUP
 export NCCL_DEBUG=TRACE
 export NCCL_DEBUG_SUBSYS=ALL
