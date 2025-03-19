@@ -232,6 +232,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 1 \
          --vllm_enable_sleep \
+         --vllm_sync_backend nccl \
          --vllm_sync_with_ray \
          --colocate_actor_ref \
          --enable_prefix_caching \
