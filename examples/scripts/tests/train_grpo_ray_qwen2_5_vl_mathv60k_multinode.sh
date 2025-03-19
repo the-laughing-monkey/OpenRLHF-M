@@ -39,11 +39,11 @@ echo "[INFO] Setting NCCL environment variables for DNS resolution in RunPod Glo
 export NCCL_SOCKET_IFNAME=eth0,podnet1
 export NCCL_IB_DISABLE=1
 export NCCL_SOCKET_FAMILY=IPv4
-#export NCCL_LAUNCH_MODE=GROUP
+export NCCL_LAUNCH_MODE=GROUP
 export NCCL_DEBUG=TRACE
 export NCCL_DEBUG_SUBSYS=ALL
-#export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
-#export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
+export NCCL_P2P_DISABLE=1      # Disable peer-to-peer as it's causing issues in container environment
+export NCCL_SHM_DISABLE=0      # Ensure shared memory is enabled
 #export DEEPSPEED_TIMEOUT=60   # Add timeout for DeepSpeed initialization
 
 # Check and report shared memory size - critical for NCCL in containers
@@ -252,8 +252,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --advantage_estimator group_norm \
          --use_kl_loss \
          --kl_estimator k3 \
-         --init_kl_coef 1e-3 \
-         --zero_stage 3 \
+         --init_kl_coef 1e-3 \\
          --bf16 \
          --actor_learning_rate 5e-7 \
          --prompt_data ${DATASET_PATH} \
