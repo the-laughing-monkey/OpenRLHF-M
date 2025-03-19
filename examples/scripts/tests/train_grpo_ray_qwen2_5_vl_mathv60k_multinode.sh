@@ -252,7 +252,7 @@ if [ $IS_HEAD -eq 1 ]; then
          --advantage_estimator group_norm \
          --use_kl_loss \
          --kl_estimator k3 \
-         --init_kl_coef 1e-3 \\
+         --init_kl_coef 1e-3 \
          --bf16 \
          --actor_learning_rate 5e-7 \
          --prompt_data ${DATASET_PATH} \
