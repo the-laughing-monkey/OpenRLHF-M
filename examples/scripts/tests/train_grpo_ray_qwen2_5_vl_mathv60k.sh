@@ -156,7 +156,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    --actor_num_nodes 1 \
    --actor_num_gpus_per_node 4 \
    --vllm_num_engines 2 \
-   --vllm_tensor_parallel_size 4 \
+   --vllm_tensor_parallel_size 2 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_gpu_memory_utilization 0.5 \
