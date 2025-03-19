@@ -229,7 +229,10 @@ if [ $IS_HEAD -eq 1 ]; then
          --remote_rm_url "${REWARD_MODEL_URL}" \
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 2 \
-         --vllm_num_engines 0 \
+         --vllm_num_engines 2 \
+         --vllm_tensor_parallel_size 1 \
+         --vllm_enable_sleep \
+         --vllm_sync_with_ray \
          --colocate_actor_ref \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
