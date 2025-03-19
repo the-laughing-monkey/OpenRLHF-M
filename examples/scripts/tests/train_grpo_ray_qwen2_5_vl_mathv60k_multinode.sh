@@ -231,7 +231,6 @@ if [ $IS_HEAD -eq 1 ]; then
          --actor_num_gpus_per_node 1 \
          --vllm_num_engines 1 \
          --vllm_tensor_parallel_size 1 \
-         --colocate_actor_ref false \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --enable_prefix_caching \
