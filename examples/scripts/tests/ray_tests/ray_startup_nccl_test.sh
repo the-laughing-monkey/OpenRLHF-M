@@ -27,7 +27,9 @@ if [ -z "$RAY_WORKER" ] || [ "$RAY_WORKER" = "0" ]; then
 
     # Start Ray head node.
     echo "Starting Ray head node..."
-    ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
+    MY_IP=$(hostname -I | awk '{print $1}')
+    echo "Local node IP: ${MY_IP}"
+    ray start --head --node-ip-address ${MY_IP} --port=6379 --dashboard-port=8265
     sleep 5  # Allow the cluster to stabilize.
     
     echo "Ray cluster status:"
