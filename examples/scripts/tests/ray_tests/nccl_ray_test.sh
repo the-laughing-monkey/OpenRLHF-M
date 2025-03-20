@@ -16,6 +16,7 @@
 #   - Ensure that the nccl-tests suite is built and available at "./nccl-tests/build/all_reduce_perf".
 #     You can clone it from https://github.com/NVIDIA/nccl-tests if needed.
 #   - It is recommended to set relevant NCCL environment variables before running this test (e.g., NCCL_SOCKET_FAMILY=IPv4, NCCL_DEBUG=TRACE).
+#   - When running as root, you must allow mpirun to run as root. This script sets the necessary environment variables.
 #
 # Example:
 #   ./nccl_ray_test.sh -i lo,eth0,podnet1 headnode.example.com workernode.example.com
@@ -68,6 +69,10 @@ if [ ! -f "./nccl-tests/build/all_reduce_perf" ]; then
     echo "Warning: nccl-tests not found at ./nccl-tests/build/all_reduce_perf."
     echo "Please clone and build from https://github.com/NVIDIA/nccl-tests"
 fi
+
+# Allow mpirun to run as root by setting these environment variables:
+export OMPI_ALLOW_RUN_AS_ROOT=1
+export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # Run the NCCL AllReduce test using mpirun.
 echo "Running NCCL AllReduce test..."
