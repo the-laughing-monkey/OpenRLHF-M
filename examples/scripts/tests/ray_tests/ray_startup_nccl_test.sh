@@ -11,7 +11,7 @@
 #   - If worker (RAY_WORKER is "1"):
 #       • Stops any existing Ray instance.
 #       • Waits for the head node (derived from HEAD_POD_ID) to be reachable.
-#       • Joins the Ray cluster.
+#       • Joins the Ray cluster, explicitly specifying its own IP address.
 #
 # Required environment variables:
 #   HEAD_POD_ID       -- The head node's pod id (used to derive its DNS as <HEAD_POD_ID>.runpod.internal)
@@ -85,7 +85,14 @@ else
     done
 
     echo "Head node is reachable. Starting Ray worker..."
-    ray start --address=$HEAD_NODE:6379
+    # Get local IP address of the worker node.
+    MY_IP=$(hostname -I | awk '{print $1}')
+    echo "Local node IP: $MY_IP"
+
+    ray start --address=$HEAD_NODE:6379 --node-ip-address=$MY_IP
 
     echo "Ray worker successfully joined the cluster."
+
+    echo "Ray cluster status:"
+    ray status
 fi
