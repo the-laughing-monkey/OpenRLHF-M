@@ -71,7 +71,7 @@ echo "================================================================"
 # Start Ray cluster for distributed training
 # Using 4 GPUs with metrics export for monitoring
 echo "Starting ray..."
-ray start --head --node-ip-address 0.0.0.0 --num-gpus 4 --temp-dir ~/.cache/ray
+ray start --head --node-ip-address 0.0.0.0 --num-gpus 8 --temp-dir ~/.cache/ray
 
 # Launch the remote reward model verifier
 # This will evaluate responses from the model against mathematical correctness
