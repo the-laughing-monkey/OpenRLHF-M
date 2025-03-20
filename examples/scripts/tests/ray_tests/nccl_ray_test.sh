@@ -70,6 +70,21 @@ echo "==========================================================="
 if [ ! -f "./nccl-tests/build/all_reduce_perf" ]; then
     echo "nccl-tests not found at ./nccl-tests/build/all_reduce_perf."
     echo "Cloning and building nccl-tests automatically..."
+
+    # Check if MPI compiler is available
+    if ! command -v mpicc &> /dev/null; then
+        echo "Error: MPI compiler (mpicc) not found. Please install an MPI implementation (e.g., OpenMPI or MPICH) and ensure mpicc is in your PATH."
+        exit 1
+    fi
+
+    # Test if mpicc can compile a basic MPI program to check for mpi.h
+    echo "#include <mpi.h>" | mpicc -x c - -o /dev/null 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "Error: Unable to compile a test MPI program. MPI development headers (mpi.h) might be missing."
+        echo "Please install the MPI development package (e.g., libopenmpi-dev) and try again."
+        exit 1
+    fi
+
     if [ ! -d "./nccl-tests" ]; then
         git clone https://github.com/NVIDIA/nccl-tests.git
         if [ $? -ne 0 ]; then
