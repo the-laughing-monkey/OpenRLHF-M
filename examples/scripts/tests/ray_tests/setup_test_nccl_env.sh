@@ -64,7 +64,7 @@ MPI_INCLUDES="-I/usr/lib/x86_64-linux-gnu/openmpi/include"
 echo "Using MPI include flags: $MPI_INCLUDES"
 
 echo "Building nccl-tests..."
-make MPI=1 NCCL_HOME=/usr/local/nccl NVCCFLAGS="-ccbin mpicc $MPI_INCLUDES"
+make MPI=1 NCCL_HOME=/usr/local/nccl MPI_INCLUDES="$MPI_INCLUDES" NVCCFLAGS="-ccbin mpicc"
 if [ $? -ne 0 ]; then
     echo "Failed to build nccl-tests. Check the build logs for errors."
     exit 1
