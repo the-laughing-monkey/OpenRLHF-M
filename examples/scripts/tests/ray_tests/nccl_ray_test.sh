@@ -80,6 +80,7 @@ fi
 # Allow mpirun to run as root by setting these environment variables:
 export OMPI_ALLOW_RUN_AS_ROOT=1
 export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+export OMPI_MCA_orte_keep_fqdn_hostnames=1
 
 # Run the NCCL AllReduce test using mpirun.
 echo "Running NCCL AllReduce test..."
