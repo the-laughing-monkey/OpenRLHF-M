@@ -58,7 +58,7 @@ if [ -z "$RAY_WORKER" ] || [ "$RAY_WORKER" = "0" ]; then
 
     # Submit the NCCL test job via Ray.
     echo "Submitting NCCL test job..."
-    ray job submit --address="http://127.0.0.1:8265" -- python3 examples/scripts/tests/ray_tests/nccl_ray_test.sh -i "$NCCL_SOCKET_IFNAME" "$HEAD_NODE" "$WORKER_NODE"
+    ray job submit --address="http://127.0.0.1:8265" -- bash examples/scripts/tests/ray_tests/nccl_ray_test.sh -i "$NCCL_SOCKET_IFNAME" "$HEAD_NODE" "$WORKER_NODE"
 else
     echo "Running as WORKER NODE."
 
