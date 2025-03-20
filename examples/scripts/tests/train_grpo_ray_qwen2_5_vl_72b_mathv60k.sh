@@ -155,8 +155,8 @@ ray job submit --address="http://127.0.0.1:8265" \
    --remote_rm_url http://127.0.0.1:5000/get_reward \
    --actor_num_nodes 1 \
    --actor_num_gpus_per_node 8 \
-   --vllm_num_engines 4 \
-   --vllm_tensor_parallel_size 2 \
+   --vllm_num_engines 2 \
+   --vllm_tensor_parallel_size 4 \
    --colocate_all_models \
    --vllm_enable_sleep \
    --vllm_sync_backend nccl \
@@ -171,9 +171,9 @@ ray job submit --address="http://127.0.0.1:8265" \
    --n_samples_per_prompt 4 \
    --max_epochs 1 \
    --num_episodes 2 \
-   --prompt_max_len 4096 \
+   --prompt_max_len 1024 \
    --max_samples 1000 \
-   --generate_max_len 8000 \
+   --generate_max_len 1024 \
    --advantage_estimator group_norm \
    --use_kl_loss \
    --kl_estimator k3 \
