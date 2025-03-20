@@ -60,6 +60,13 @@ fi
 
 # Build nccl-tests
 cd nccl-tests || { echo "Failed to enter nccl-tests directory."; exit 1; }
+MPI_INCLUDES=$(mpicc -show | grep -oE '\-I[^ ]+' | xargs)
+if [ -z "$MPI_INCLUDES" ]; then
+    echo "Warning: Could not detect MPI include flags. Defaulting to -I/usr/include"
+    MPI_INCLUDES="-I/usr/include"
+fi
+echo "Using MPI include flags: $MPI_INCLUDES"
+
 MPI_INCDIR=$(mpicc -show | sed -n 's/.*-I\([^ ]*\).*/\1/p')
 if [ -z "$MPI_INCDIR" ]; then
     echo "Warning: Could not detect MPI include directory. Defaulting to /usr/include"
