@@ -63,6 +63,7 @@ if [ -z "$RAY_WORKER" ] || [ "$RAY_WORKER" = "0" ]; then
 
     # Submit the standalone NCCL test job via Ray
     echo "Submitting standalone NCCL test job..."
+    export RAY_ADDRESS="http://${MY_IP}:8265"
     bash examples/scripts/tests/ray_tests/run_standalone_nccl_test.sh
 else
     echo "Running as WORKER NODE."
