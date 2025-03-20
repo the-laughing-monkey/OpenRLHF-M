@@ -64,7 +64,7 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 
 1. Update the system and install Python tools:
 ```bash
-   apt update && apt upgrade -y && apt install -y python3-pip python3-venv python3-dev build-essential git curl vim lsof net-tools rsync libopenmpi-dev build-essential dkms dnsutils libnccl2 libnccl-dev dnsutils
+   apt update && apt upgrade -y && apt install -y python3-pip python3-venv python3-dev build-essential git curl vim lsof net-tools rsync libopenmpi-dev build-essential dkms dnsutils libnccl2 libnccl-dev dnsutils netcat-openbsd
 ```
 
 2. Create a virtual environment in your data directory:
