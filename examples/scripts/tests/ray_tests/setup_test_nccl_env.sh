@@ -60,11 +60,11 @@ fi
 
 # Build nccl-tests
 cd nccl-tests || { echo "Failed to enter nccl-tests directory."; exit 1; }
-MPI_INCLUDES="-I/usr/lib/x86_64-linux-gnu/openmpi/include"
-echo "Using MPI include flags: $MPI_INCLUDES"
+MPI_HOME="/usr/lib/x86_64-linux-gnu/openmpi"
+echo "Using MPI_HOME: $MPI_HOME"
 
 echo "Building nccl-tests..."
-make MPI=1 NCCL_HOME=/usr/local/nccl MPI_INCLUDES="$MPI_INCLUDES" NVCCFLAGS="-ccbin mpicc"
+make MPI=1 NCCL_HOME=/usr/local/nccl MPI_HOME="$MPI_HOME" NVCCFLAGS="-ccbin mpicc"
 if [ $? -ne 0 ]; then
     echo "Failed to build nccl-tests. Check the build logs for errors."
     exit 1
