@@ -12,8 +12,8 @@ ray job submit --address="http://127.0.0.1:8265" \
     --critic_num_gpus_per_node 8 \
     --actor_num_nodes 1 \
     --actor_num_gpus_per_node 8 \
-    --vllm_num_engines 4 \
-    --vllm_tensor_parallel_size 2 \
+    --vllm_num_engines 2 \
+    --vllm_tensor_parallel_size 4 \
     --pretrain meta-llama/Meta-Llama-3-70B-Instruct \
     --reward_pretrain meta-llama/Meta-Llama-3-70B-Instruct \
     --save_path /openrlhf/examples/checkpoint/llama-3-70b-rlhf \
