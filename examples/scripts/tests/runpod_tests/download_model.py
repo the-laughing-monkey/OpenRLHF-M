@@ -16,9 +16,16 @@ def main():
     args = parser.parse_args()
 
     print(f"Downloading model and tokenizer for {args.model_name}...")
-    # This will automatically download and cache the model in /root/.cache/huggingface
+    # This will automatically download and cache the tokenizer in /root/.cache/huggingface
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    try:
+        # Try loading as a causal LM.
+        model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    except ValueError as e:
+        print("AutoModelForCausalLM failed to load the model configuration:", e)
+        print("Falling back to AutoModel for downloading the model.")
+        from transformers import AutoModel
+        model = AutoModel.from_pretrained(args.model_name)
     print("Download complete. The model and tokenizer have been cached in the HuggingFace cache directory.")
 
 
