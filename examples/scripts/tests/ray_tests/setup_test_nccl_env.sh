@@ -67,15 +67,8 @@ if [ -z "$MPI_INCLUDES" ]; then
 fi
 echo "Using MPI include flags: $MPI_INCLUDES"
 
-MPI_INCDIR=$(mpicc -show | sed -n 's/.*-I\([^ ]*\).*/\1/p')
-if [ -z "$MPI_INCDIR" ]; then
-    echo "Warning: Could not detect MPI include directory. Defaulting to /usr/include"
-    MPI_INCDIR="/usr/include"
-fi
-echo "Using MPI include directory: $MPI_INCDIR"
-
 echo "Building nccl-tests..."
-make MPI=1 NCCL_HOME=/usr/local/nccl NVCCFLAGS="-ccbin mpicc -I${MPI_INCDIR} -I/usr/include"
+make MPI=1 NCCL_HOME=/usr/local/nccl NVCCFLAGS="-ccbin mpicc $MPI_INCLUDES"
 if [ $? -ne 0 ]; then
     echo "Failed to build nccl-tests. Check the build logs for errors."
     exit 1
