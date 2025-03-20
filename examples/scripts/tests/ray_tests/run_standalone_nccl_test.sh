@@ -7,7 +7,7 @@ if [ -z "$RAY_ADDRESS" ]; then
         echo "Error: Either RAY_ADDRESS or HEAD_POD_ID must be set."
         exit 1
     fi
-    RAY_ADDRESS="http://${HEAD_POD_ID}.runpod.internal:8265"
+    RAY_ADDRESS="http://127.0.0.1:8265"
 fi
 
 # Ensure the standalone NCCL test is compiled
