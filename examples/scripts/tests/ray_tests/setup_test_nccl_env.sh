@@ -60,15 +60,7 @@ fi
 
 # Build nccl-tests
 cd nccl-tests || { echo "Failed to enter nccl-tests directory."; exit 1; }
-if [ -n "$MPI_INCDIR" ]; then
-    MPI_INCLUDES="-I$MPI_INCDIR"
-else
-    MPI_INCLUDES=$(mpicc -show | grep -oE '\-I[^ ]+' | xargs)
-    if [ -z "$MPI_INCLUDES" ]; then
-        echo "Warning: Could not detect MPI include flags. Defaulting to -I/usr/include"
-        MPI_INCLUDES="-I/usr/include"
-    fi
-fi
+MPI_INCLUDES="-I/usr/lib/x86_64-linux-gnu/openmpi/include"
 echo "Using MPI include flags: $MPI_INCLUDES"
 
 echo "Building nccl-tests..."
