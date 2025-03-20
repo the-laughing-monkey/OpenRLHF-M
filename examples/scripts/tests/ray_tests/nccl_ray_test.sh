@@ -13,8 +13,8 @@
 #
 # Notes:
 #   - HEAD_NODE and WORKER_NODE should be the hostnames or IP addresses of the head and worker nodes, respectively.
-#   - Ensure that the nccl-tests suite is built and available at "./nccl-tests/build/all_reduce_perf".
-#     You can clone it from https://github.com/NVIDIA/nccl-tests if needed.
+#   - The script will automatically clone and build the nccl-tests suite if it is not found at "./nccl-tests/build/all_reduce_perf".
+#     The repository is cloned from https://github.com/NVIDIA/nccl-tests and built with 'make MPI=1 NCCL_HOME=/usr/local/nccl'.
 #   - It is recommended to set relevant NCCL environment variables before running this test (e.g., NCCL_SOCKET_FAMILY=IPv4, NCCL_DEBUG=TRACE).
 #   - The mpirun command has been modified to disable SSH strict host key verification by passing the argument:
 #         -mca plm_rsh_args "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -66,10 +66,24 @@ echo "HEAD_NODE: $HEAD_NODE"
 echo "WORKER_NODE: $WORKER_NODE"
 echo "==========================================================="
 
-# Check if nccl-tests is built.
+# Check if nccl-tests is built; if not, clone and build it automatically.
 if [ ! -f "./nccl-tests/build/all_reduce_perf" ]; then
-    echo "Warning: nccl-tests not found at ./nccl-tests/build/all_reduce_perf."
-    echo "Please clone and build from https://github.com/NVIDIA/nccl-tests"
+    echo "nccl-tests not found at ./nccl-tests/build/all_reduce_perf."
+    echo "Cloning and building nccl-tests automatically..."
+    if [ ! -d "./nccl-tests" ]; then
+        git clone https://github.com/NVIDIA/nccl-tests.git
+        if [ $? -ne 0 ]; then
+            echo "Failed to clone nccl-tests from GitHub."
+            exit 1
+        fi
+    fi
+    cd nccl-tests
+    make MPI=1 NCCL_HOME=/usr/local/nccl
+    if [ $? -ne 0 ]; then
+        echo "Failed to build nccl-tests."
+        exit 1
+    fi
+    cd ..
 fi
 
 # Allow mpirun to run as root by setting these environment variables:
