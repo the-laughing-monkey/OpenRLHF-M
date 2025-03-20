@@ -10,8 +10,8 @@ def main():
     parser.add_argument(
         "--model_name",
         type=str,
-        default="Qwen/Qwen2.5-VL-72B-Instruct",
-        help="The repository for the model to download (default: Qwen/Qwen2.5-VL-72B-Instruct)"
+        default="Qwen/Qwen2.5-VL-3B-Instruct",
+        help="The repository for the model to download (default: Qwen/Qwen2.5-VL-3B-Instruct)"
     )
     args = parser.parse_args()
 
