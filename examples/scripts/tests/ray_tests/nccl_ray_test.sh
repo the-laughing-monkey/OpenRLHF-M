@@ -66,39 +66,15 @@ echo "HEAD_NODE: $HEAD_NODE"
 echo "WORKER_NODE: $WORKER_NODE"
 echo "==========================================================="
 
-# Check if nccl-tests is built; if not, clone and build it automatically.
+# Check if nccl-tests is built; if not, compile it using setup_test_nccl_env.sh
 if [ ! -f "./nccl-tests/build/all_reduce_perf" ]; then
     echo "nccl-tests not found at ./nccl-tests/build/all_reduce_perf."
-    echo "Cloning and building nccl-tests automatically..."
-
-    # Check if MPI compiler is available
-    if ! command -v mpicc &> /dev/null; then
-        echo "Error: MPI compiler (mpicc) not found. Please install an MPI implementation (e.g., OpenMPI or MPICH) and ensure mpicc is in your PATH."
-        exit 1
-    fi
-
-    # Test if mpicc can compile a basic MPI program to check for mpi.h
-    echo "#include <mpi.h>" | mpicc -x c - -o /dev/null 2>/dev/null
+    echo "Calling setup_test_nccl_env.sh to compile nccl-tests..."
+    ./setup_test_nccl_env.sh
     if [ $? -ne 0 ]; then
-        echo "Error: Unable to compile a test MPI program. MPI development headers (mpi.h) might be missing."
-        echo "Please install the MPI development package (e.g., libopenmpi-dev) and try again."
-        exit 1
+         echo "Failed to compile nccl-tests using setup_test_nccl_env.sh."
+         exit 1
     fi
-
-    if [ ! -d "./nccl-tests" ]; then
-        git clone https://github.com/NVIDIA/nccl-tests.git
-        if [ $? -ne 0 ]; then
-            echo "Failed to clone nccl-tests from GitHub."
-            exit 1
-        fi
-    fi
-    cd nccl-tests
-    make MPI=1 NCCL_HOME=/usr/local/nccl
-    if [ $? -ne 0 ]; then
-        echo "Failed to build nccl-tests."
-        exit 1
-    fi
-    cd ..
 fi
 
 # Allow mpirun to run as root by setting these environment variables:
