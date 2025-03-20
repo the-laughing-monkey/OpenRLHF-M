@@ -5,6 +5,7 @@
 #   - If head (RAY_WORKER is unset or "0"):
 #       • Stops any existing Ray instance.
 #       • Starts Ray as the head node on port 6379 (with dashboard at port 8265).
+#       • Runs 'ray status' to display cluster connectivity.
 #       • Derives HEAD_NODE DNS from HEAD_POD_ID.
 #       • Submits the NCCL test job (nccl_ray_test.sh) which tests multi-interface communication.
 #   - If worker (RAY_WORKER is "1"):
@@ -33,6 +34,9 @@ if [ -z "$RAY_WORKER" ] || [ "$RAY_WORKER" = "0" ]; then
     echo "Starting Ray head node..."
     ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
     sleep 5  # Allow the cluster to stabilize.
+    
+    echo "Ray cluster status:"
+    ray status
 
     # Verify that HEAD_POD_ID is set.
     if [ -z "$HEAD_POD_ID" ]; then
