@@ -1,32 +1,24 @@
 #!/usr/bin/env python3
 import argparse
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from huggingface_hub import snapshot_download
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download a large HuggingFace model and its tokenizer, caching them automatically."
+        description="Download a large HuggingFace model repository to the cache, without loading it."
     )
     parser.add_argument(
         "--model_name",
         type=str,
         default="Qwen/Qwen2.5-VL-72B-Instruct",
-        help="The name or path of the model to download (default: Qwen/Qwen2.5-VL-72B-Instruct)"
+        help="The repository for the model to download (default: Qwen/Qwen2.5-VL-72B-Instruct)"
     )
     args = parser.parse_args()
 
-    print(f"Downloading model and tokenizer for {args.model_name}...")
-    # This will automatically download and cache the tokenizer in /root/.cache/huggingface
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    try:
-        # Try loading as a causal LM.
-        model = AutoModelForCausalLM.from_pretrained(args.model_name)
-    except ValueError as e:
-        print("AutoModelForCausalLM failed to load the model configuration:", e)
-        print("Falling back to AutoModel for downloading the model.")
-        from transformers import AutoModel
-        model = AutoModel.from_pretrained(args.model_name)
-    print("Download complete. The model and tokenizer have been cached in the HuggingFace cache directory.")
+    print(f"Downloading model repository for {args.model_name}...")
+    # This will download the repository of the model into the HuggingFace cache directory
+    snapshot_download(repo_id=args.model_name)
+    print("Download complete. The model repository has been cached in the HuggingFace cache directory.")
 
 
 if __name__ == '__main__':
