@@ -16,7 +16,9 @@
 #   - Ensure that the nccl-tests suite is built and available at "./nccl-tests/build/all_reduce_perf".
 #     You can clone it from https://github.com/NVIDIA/nccl-tests if needed.
 #   - It is recommended to set relevant NCCL environment variables before running this test (e.g., NCCL_SOCKET_FAMILY=IPv4, NCCL_DEBUG=TRACE).
-#   - When running as root, you must allow mpirun to run as root. This script sets the necessary environment variables.
+#   - The mpirun command has been modified to disable SSH strict host key verification by passing the argument:
+#         -mca plm_rsh_args "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+#     This avoids host key verification issues when launching remote processes.
 #
 # Example:
 #   ./nccl_ray_test.sh -i lo,eth0,podnet1 headnode.example.com workernode.example.com
@@ -76,4 +78,8 @@ export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # Run the NCCL AllReduce test using mpirun.
 echo "Running NCCL AllReduce test..."
-mpirun -np 2 -H ${HEAD_NODE}:1,${WORKER_NODE}:1 -x NCCL_SOCKET_IFNAME="$interfaces" ./nccl-tests/build/all_reduce_perf -b 8 -e 256M -f 2 -g 1
+mpirun -np 2 \
+    -mca plm_rsh_args "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+    -H ${HEAD_NODE}:1,${WORKER_NODE}:1 \
+    -x NCCL_SOCKET_IFNAME="$interfaces" \
+    ./nccl-tests/build/all_reduce_perf -b 8 -e 256M -f 2 -g 1
