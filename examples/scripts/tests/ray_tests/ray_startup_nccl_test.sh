@@ -7,7 +7,7 @@
 #       • Starts Ray as the head node on port 6379 (with dashboard at port 8265).
 #       • Runs 'ray status' to display cluster connectivity.
 #       • Derives HEAD_NODE DNS from HEAD_POD_ID.
-#       • Submits the NCCL test job (nccl_ray_test.sh) which tests multi-interface communication.
+#       • Submits the standalone NCCL test job using Ray.
 #   - If worker (RAY_WORKER is "1"):
 #       • Stops any existing Ray instance.
 #       • Waits for the head node (derived from HEAD_POD_ID) to be reachable.
@@ -16,12 +16,7 @@
 # Required environment variables:
 #   HEAD_POD_ID       -- The head node's pod id (used to derive its DNS as <HEAD_POD_ID>.runpod.internal)
 #   RAY_WORKER        -- Set to 1 for worker nodes; head node if unset or "0".
-#   WORKER_NODE       -- (On head node only) Worker node IP or hostname for job submission.
 #   NCCL_SOCKET_IFNAME -- (Optional) Comma-separated list of interfaces (e.g. "lo,eth0,podnet1").
-#
-# For more details, refer to:
-#  - RunPod Multi-Node Training Setup: https://docs.runpod.io/pods/networking
-#  - Your train_grpo_ray_qwen2_5_vl_mathv60k_multinode.sh and NCCL troubleshooting guides.
 
 # Determine if this is a head node.
 if [ -z "$RAY_WORKER" ] || [ "$RAY_WORKER" = "0" ]; then
@@ -48,21 +43,25 @@ if [ -z "$RAY_WORKER" ] || [ "$RAY_WORKER" = "0" ]; then
     HEAD_NODE="${HEAD_POD_ID}.runpod.internal"
     echo "HEAD_NODE DNS set to: ${HEAD_NODE}"
 
-    # Verify that WORKER_NODE is set (for job submission).
-    if [ -z "$WORKER_NODE" ]; then
-        echo "Error: WORKER_NODE environment variable not set for job submission."
-        exit 1
-    fi
-
     # (Optional) Set a default for NCCL_SOCKET_IFNAME if not already set.
     if [ -z "$NCCL_SOCKET_IFNAME" ]; then
         export NCCL_SOCKET_IFNAME="lo,eth0,podnet1"
     fi
     echo "Using NCCL interfaces: ${NCCL_SOCKET_IFNAME}"
+    
+    # Compile the standalone NCCL test if it doesn't exist
+    if [ ! -f "./standalone_nccl_test" ]; then
+        echo "Compiling standalone NCCL test..."
+        bash examples/scripts/tests/ray_tests/setup_test_nccl_env.sh
+        if [ $? -ne 0 ]; then
+            echo "Failed to compile standalone NCCL test."
+            exit 1
+        fi
+    fi
 
-    # Submit the NCCL test job via Ray.
-    echo "Submitting NCCL test job..."
-    ray job submit --address="http://127.0.0.1:8265" -- bash examples/scripts/tests/ray_tests/nccl_ray_test.sh -i "$NCCL_SOCKET_IFNAME" "$HEAD_NODE" "$WORKER_NODE"
+    # Submit the standalone NCCL test job via Ray
+    echo "Submitting standalone NCCL test job..."
+    bash examples/scripts/tests/ray_tests/run_standalone_nccl_test.sh
 else
     echo "Running as WORKER NODE."
 
@@ -95,4 +94,16 @@ else
 
     echo "Ray cluster status:"
     ray status
+    
+    # Compile the standalone NCCL test on this worker node too
+    if [ ! -f "./standalone_nccl_test" ]; then
+        echo "Compiling standalone NCCL test on worker node..."
+        bash examples/scripts/tests/ray_tests/setup_test_nccl_env.sh
+        if [ $? -ne 0 ]; then
+            echo "Failed to compile standalone NCCL test on worker node."
+            exit 1
+        fi
+    fi
+    
+    echo "Worker node setup complete and ready for Ray tasks."
 fi
