@@ -4,9 +4,9 @@ set -x
 NODE_HOSTNAME=$(hostname)
 WORKSPACE_DIR="$(pwd)"
 DATASET_PATH="/data/datasets/VerMulti/mathv60k_message.jsonl"
-PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-3B-Instruct"
+PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-72B-Instruct"
 SAVE_PATH="./checkpoints"
-MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
+MODEL_NAME="qwen2.5-vl-72b-ins-mathvista-grpo"
 
 # Get the IP address of eth1 interface
 ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
@@ -35,6 +35,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --vllm_sync_with_ray \
+         --colocate_all_models \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
