@@ -8,6 +8,15 @@ PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-72B-Instruct"
 SAVE_PATH="./checkpoints"
 MODEL_NAME="qwen2.5-vl-72b-ins-mathvista-grpo"
 
+# Check for WandB API key.
+if [ -z "${WANDB_API_KEY}" ]; then
+  echo "[INFO] WANDB_API_KEY not set. WandB logging will be disabled."
+  WANDB_ARGS=""
+else
+  echo "[INFO] WANDB_API_KEY found. WandB logging enabled."
+  WANDB_ARGS="--use_wandb ${WANDB_API_KEY} --wandb_run_name ${MODEL_NAME} --wandb_group \"openrlhf-m-training\""
+fi
+
 # Get the IP address of eth1 interface
 ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
 echo "Using eth1 IP address: ${ETH1_IP}"
@@ -66,4 +75,5 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --save_steps 5 \
          --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
          --save_hf_ckpt \
-         --load_checkpoint
+         --load_checkpoint \
+         ${WANDB_ARGS}
