@@ -9,6 +9,10 @@ SAVE_PATH="./checkpoints"
 MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
 WANDB_DIR="${WORKSPACE_DIR}"
 
+# NCCL Commands
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=eth0
+
 # Suppress unhandled errors in Ray
 export RAY_IGNORE_UNHANDLED_ERRORS=1
 
