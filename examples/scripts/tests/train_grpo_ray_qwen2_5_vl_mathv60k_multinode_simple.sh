@@ -15,6 +15,7 @@ set -x
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --vllm_sync_with_ray \
+         --colocate_actor_ref \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
