@@ -11,7 +11,7 @@ WANDB_DIR="${WORKSPACE_DIR}"
 
 # NCCL Commands
 export NCCL_DEBUG=INFO
-export NCCL_SOCKET_IFNAME=eth0
+export NCCL_SOCKET_IFNAME=eth1
 
 # Suppress unhandled errors in Ray
 export RAY_IGNORE_UNHANDLED_ERRORS=1
