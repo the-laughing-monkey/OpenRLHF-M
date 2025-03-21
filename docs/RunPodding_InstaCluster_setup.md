@@ -123,6 +123,7 @@ This is a critical step because:
 - Model training checkpoints can be large (multiple GB each)
 - The default container disk (50GB) will quickly fill up during training
 - Moving these to your data volume (500GB-1000GB) prevents "No space left on device" errors
+
 ---
 
 ### 10. Download and Prepare the MathV60K Dataset

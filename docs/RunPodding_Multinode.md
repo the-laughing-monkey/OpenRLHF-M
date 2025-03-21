@@ -45,9 +45,6 @@ export EXPECTED_WORKERS=2
 
 # OPTIONAL: Enable WandB logging by providing your API key
 export WANDB_API_KEY=your_wandb_api_key_here
-
-# OPTIONAL: Enable Ray debugging mode
-export DEBUG_RAY=1
 ```
 
 ### For Worker Nodes
@@ -58,30 +55,12 @@ export RAY_WORKER=1
 
 # REQUIRED: The RunPod ID of the head node (must match the HEAD_POD_ID set on the head node)
 export HEAD_POD_ID=abc123
-
-# OPTIONAL: Enable Ray debugging mode (should match head node setting)
-export DEBUG_RAY=1
 ```
 
 Set these on both the head and worker nodes:
 
 ```bash
-# Critical NCCL environment variables for proper networking in RunPod
-# Use priority-ordered interfaces with loopback first for local connections
-export NCCL_SOCKET_IFNAME=lo,eth0,podnet1
-export NCCL_IB_DISABLE=1
-export NCCL_SOCKET_FAMILY=IPv4
-export NCCL_LAUNCH_MODE=GROUP
-export NCCL_DEBUG=INFO
-export NCCL_DEBUG_SUBSYS=ALL
-# Disable peer-to-peer as it can cause issues in container environments
-export NCCL_P2P_DISABLE=1
-# Ensure shared memory is enabled (this is default, but being explicit)
-export NCCL_SHM_DISABLE=0
-# Give DeepSpeed more time to initialize
-export DEEPSPEED_TIMEOUT=600
-# Required to avoid Flash Attention errors
-export FORCE_MODEL_INIT_TO_CUDA=1
+export NCCL_SOCKET_IFNAME=eth0
 ```
 
 ## Preparing the Dataset
@@ -113,19 +92,6 @@ The script provides detailed progress information and will tell you when the dat
 
 
 ## Setting Up Your Instances
-
-### Important Container Requirements
-
-When running in Docker containers (which RunPod pods are), ensure your container has sufficient shared memory by adding these flags when creating your pod:
-```bash
---shm-size=1g --ulimit memlock=-1
-```
-
-These settings are critical for proper NCCL operation within containers. You can verify your shared memory size with:
-```bash
-df -h /dev/shm
-```
-A size of at least 1GB is recommended for NCCL.
 
 ### On the Head Node
 
