@@ -23,7 +23,7 @@ MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
          --ref_num_gpus_per_node 8 \
-         --remote_rm_url http://127.0.0.1:5000/get_reward \
+         --remote_rm_url http://10.65.0.2:5000/get_reward \
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 8 \
          --vllm_num_engines 4 \
