@@ -8,6 +8,14 @@ PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-3B-Instruct"
 SAVE_PATH="./checkpoints"
 MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
 
+ # Start the remote reward model server and test connectivity.
+  echo "[HEAD NODE] Starting remote reward model server..."
+  python3 -m openrlhf.models.remote_rm.math_verifier \
+      --dataset "${DATASET_PATH}" \
+      --input_key message \
+      --prompt-template chatml 2>&1 | tee -a "${CUR_LOG_DIR}/remote_rm.log" &
+  REMOTE_RM_PID=$!
+
   # Submit the training job.
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
   ray job submit --address="http://127.0.0.1:8265" \
@@ -15,7 +23,7 @@ MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
          --ref_num_gpus_per_node 8 \
-         --remote_rm_url http://0.0.0.0:5000/get_reward \
+         --remote_rm_url http://127.0.0.1:5000/get_reward \
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 8 \
          --vllm_num_engines 4 \
