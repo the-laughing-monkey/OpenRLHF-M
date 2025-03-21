@@ -9,6 +9,9 @@ SAVE_PATH="./checkpoints"
 MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
 WANDB_DIR="${WORKSPACE_DIR}"
 
+# Suppress unhandled errors in Ray
+export RAY_IGNORE_UNHANDLED_ERRORS=1
+
 # Check for WandB API key.
 if [ -z "${WANDB_API_KEY}" ]; then
   echo "[INFO] WANDB_API_KEY not set. WandB logging will be disabled."

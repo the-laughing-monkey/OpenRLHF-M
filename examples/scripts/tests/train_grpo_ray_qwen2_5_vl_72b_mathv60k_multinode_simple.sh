@@ -8,6 +8,9 @@ PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-72B-Instruct"
 SAVE_PATH="./checkpoints"
 MODEL_NAME="qwen2.5-vl-72b-ins-mathvista-grpo"
 
+# Suppress unhandled errors in Ray
+export RAY_IGNORE_UNHANDLED_ERRORS=1
+
 # Check for WandB API key.
 if [ -z "${WANDB_API_KEY}" ]; then
   echo "[INFO] WANDB_API_KEY not set. WandB logging will be disabled."
