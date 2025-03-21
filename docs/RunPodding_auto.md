@@ -80,15 +80,20 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
   git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 ```
 
+### 6. Pip install huggingface hub so you can download models and data while the rest installs
+```bash
+  pip install huggingface_hub
+```
 
-### 6. Run setup script to install everything else
+
+### 7. Run setup script to install everything else
 ```bash
   cd /data/OpenRLHF-M
   bash ./examples/scripts/tests/setup/setup.sh
 ```
 
 
-### 7. (Optional) Set Your WandB API Key
+### 8. (Optional) Set Your WandB API Key
 
 If you wish to use Weights & Biases (wandb) for experiment tracking, set your API key:
 1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
@@ -100,7 +105,7 @@ This step is optional but recommended for more integrated experiment monitoring.
 
 ---
 
-### 8. Prepare Your Cache
+### 9. Prepare Your Cache
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
@@ -119,7 +124,7 @@ This is a critical step because:
 - Moving these to your data volume (500GB-1000GB) prevents "No space left on device" errors
 ---
 
-### 9. Download and Prepare the MathV60K Dataset
+### 10. Download and Prepare the MathV60K Dataset
 
 Before running a training job, you'll need to prepare the dataset:
 
@@ -131,6 +136,7 @@ Before running a training job, you'll need to prepare the dataset:
 2. Download and prepare the MathV60K dataset:
 ```bash
   cd /data/OpenRLHF-M
+  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
   python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
