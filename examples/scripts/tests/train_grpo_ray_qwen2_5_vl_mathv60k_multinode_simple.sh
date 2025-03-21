@@ -1,5 +1,14 @@
 set -x
 
+# Set environment variables and paths.
+NODE_HOSTNAME=$(hostname)
+WORKSPACE_DIR="$(pwd)"
+DATASET_PATH="/data/datasets/VerMulti/mathv60k_message.jsonl"
+PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-3B-Instruct"
+SAVE_PATH="./checkpoints"
+MODEL_NAME="qwen2.5-vl-3b-ins-mathvista-grpo"
+WANDB_DIR="${WORKSPACE_DIR}"
+
   # Submit the training job.
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
   ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
