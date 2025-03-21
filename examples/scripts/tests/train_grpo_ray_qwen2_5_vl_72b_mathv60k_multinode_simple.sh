@@ -8,8 +8,9 @@ PRETRAIN_MODEL_PATH="Qwen/Qwen2.5-VL-72B-Instruct"
 SAVE_PATH="./checkpoints"
 MODEL_NAME="qwen2.5-vl-72b-ins-mathvista-grpo"
 
-# Suppress unhandled errors in Ray
-export RAY_IGNORE_UNHANDLED_ERRORS=1
+# NCCL Commands
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=eth1
 
 # Check for WandB API key.
 if [ -z "${WANDB_API_KEY}" ]; then
@@ -46,6 +47,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --vllm_tensor_parallel_size 2 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
+         --vllm_gpu_memory_utilization 0.4 \
          --colocate_all_models \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
