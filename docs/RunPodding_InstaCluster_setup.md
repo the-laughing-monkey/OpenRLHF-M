@@ -99,10 +99,6 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 
 If you wish to use Weights & Biases (wandb) for experiment tracking, set your API key:
 
-1. Sign up or log in at [Weights & Biases](https://wandb.ai/site) and obtain your API key.
-
-2. On your pod, run:
-
 ```bash
     export WANDB_API_KEY=YOUR_WANDB_API_KEY
 ```
@@ -114,12 +110,12 @@ This step is optional but recommended for more integrated experiment monitoring.
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
-mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
-rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
-rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
-rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
-# Verify symlinks
-ls -la /root/.cache/
+    mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
+    rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
+    rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
+    rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
+    # Verify symlinks
+    ls -la /root/.cache/
 ```
 
 This is a critical step because:
@@ -135,14 +131,14 @@ Before running a training job, you'll need to prepare the dataset:
 
 1. Create the datasets directory:
 ```bash
-  mkdir -p /data/datasets
+    mkdir -p /data/datasets
 ```
 
 2. Download and prepare the MathV60K dataset:
 ```bash
-  cd /data/OpenRLHF-M
-  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
-  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+    cd /data/OpenRLHF-M
+    python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+    python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
 This script will:
@@ -155,98 +151,105 @@ The script provides detailed progress information and will tell you when the dat
 
 
 ### 11. Set your NCCL environment variables to use the eth1 interface:
+
+CRITICAL: RunPod only allows internode communication over eth1. So you need to set your NCCL to use the eth1 IP or NCCL will fail to update weights across nodes.
+
 ```bash
-export NCCL_DEBUG=INFO
-export NCCL_SOCKET_IFNAME=eth1
+    export NCCL_DEBUG=INFO
+    export NCCL_SOCKET_IFNAME=eth1
 ```
 
 
 ### 12. Set your Ray head node to use the eth1 IP
+
+CRITICAL: RunPod only allows internode communication over eth1. So you need to set your Ray head node to use the eth1 IP.
+
 ```bash
-export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
-echo "Using ETH1 IP: ${ETH1_IP}"
+    export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
+    echo "Using ETH1 IP: ${ETH1_IP}"
 ```
 
 2. Stop any running Ray instances (if any):
 ```bash
-ray stop
+    ray stop
 ```
 
 3. Start the Ray head node bound only to the eth1 IP:
 ```bash
-ray start --head --node-ip-address ${ETH1_IP} --public-ip-address ${ETH1_IP} --port=6379 --dashboard-port=8265
+    ray start --head --node-ip-address ${ETH1_IP} --public-ip-address ${ETH1_IP} --port=6379 --dashboard-port=8265
 ```
-This sequence grabs the correct IP from eth1, stops any existing Ray clusters, and starts Ray with the eth1 IP for both internal and external communications.
 
 
 ### 12. Run Your First OpenRLHF-M Training Job with MathV60K
 
 Now you're ready to launch a training job using the MathV60K dataset and the Qwen2.5-VL-3B model:
 
-1. First, adjust the GPU configuration in the script to match your RunPod setup:
+1. First, copy the script to your pod:
 
 ```bash
-cd /data/OpenRLHF-M
-cp examples/scripts/tests/train_ppo_ray_qwen2_5_vl_mathv60k.sh ./my_train_script.sh
+    cd /data/OpenRLHF-M
+    mkdir -p ./scripts
+    cp examples/scripts/tests/train_ppo_ray_qwen2_5_vl_mathv60k_multinode_simple.sh ./scripts/my_train_script.sh
 ```
 
 2. Edit the script to match your pod's GPU configuration:
 
 ```bash
-nano my_train_script.sh
+    nano my_train_script.sh
 ```
 
 Make the following adjustments:
 
-a. Update the Ray start command to match your GPU count (replace `4` with your actual GPU count):
-```bash
-ray start --head --node-ip-address 0.0.0.0 --num-gpus 4 --temp-dir /data/cache-ray
-```
 
-b. Update the GPU distribution in the training command. For example, if you have 2 GPUs:
+a. Update the GPU distribution in the training command. For example, if you have 2 GPUs:
 
 # vllm_num_engines x vllm_tensor_parallel_size = number of actor_num_nodes x actor_num_gpus_per_node in one way or another. So this works:
 
---actor_num_nodes 1 \
---actor_num_gpus_per_node 4 \
---vllm_num_engines 4 \
---vllm_tensor_parallel_size 1 \
+```bash
+    --actor_num_nodes 1 \
+    --actor_num_gpus_per_node 4 \
+    --vllm_num_engines 4 \
+    --vllm_tensor_parallel_size 1 \
+```
 
 # So does this:
 
---actor_num_nodes 1 \
---actor_num_gpus_per_node 4 \
---vllm_num_engines 2 \
---vllm_tensor_parallel_size 2 \
+```bash
+    --actor_num_nodes 1 \
+    --actor_num_gpus_per_node 4 \
+    --vllm_num_engines 2 \
+    --vllm_tensor_parallel_size 2 \
+```
 
 # If you want to split a model across multiple nodes, you can do something like this, which would split it across 2 nodes with 8 GPUs each for a total of 16 GPUs:
 
---actor_num_nodes 1 \
---actor_num_gpus_per_node 16 \
---vllm_num_engines 8 \
---vllm_tensor_parallel_size 2 \
-
-
 ```bash
---ref_num_nodes 1 \
---ref_num_gpus_per_node 4 \
---actor_num_nodes 1 \
---actor_num_gpus_per_node 4 \
---critic_num_nodes 1 \
---critic_num_gpus_per_node 4 \
---vllm_num_engines 4 \
---vllm_tensor_parallel_size 1 \
---colocate_all_models \
+    --actor_num_nodes 1 \
+    --actor_num_gpus_per_node 16 \
+    --vllm_num_engines 8 \
+    --vllm_tensor_parallel_size 2 \
 ```
 
-c. Make sure the working directory is set correctly:
+# Here is an example of a more complex GPU distribution:
+
 ```bash
---runtime-env-json="{\"working_dir\": \"/data/OpenRLHF-M\"}" \
+    --ref_num_nodes 1 \
+    --ref_num_gpus_per_node 8 \
+    --actor_num_nodes 1 \
+    --actor_num_gpus_per_node 8 \
+    --vllm_num_engines 4 \
+    --vllm_tensor_parallel_size 2 \
+    --colocate_all_models \
+```
+
+b. Make sure the working directory is set correctly:
+```bash
+    --runtime-env-json="{\"working_dir\": \"/data/OpenRLHF-M\"}" \
 ```
 
 3. Run the adjusted training script:
 ```bash
-bash my_train_script.sh
+    bash ./scripts/my_train_script.sh
 ```
 
 4. **Important Disk Space Considerations:**

@@ -195,9 +195,14 @@ d. Set your WANDB environment variable before running (if you want to use WandB)
 export WANDB_API_KEY=your_api_key_here
 ```
 
+e. Ensure your reward model is running and accessible from the head node on Eth1:
+```bash
+  --remote_rm_url http://${ETH1_IP}:5000/get_reward \
+```
+
 3. Run the adjusted training script:
 ```bash
-bash my_train_script.sh
+  bash ./scripts/my_train_script.sh
 ```
 
 4. **Important Disk Space Considerations:**
@@ -216,7 +221,7 @@ Disk space issues can cause training to fail when saving checkpoints. Adjust the
 --save_hf_ckpt \    # While still saving HuggingFace format checkpoints (recommended)
 ```
 
-Also, make sure to direct Ray to use your large data volume for temporary files by changing the Ray startup command:
+Also, make you could direct Ray to use your large data volume for temporary files by changing the Ray startup command:
 
 ```bash
 # Change this line in your script:
@@ -230,22 +235,35 @@ These adjustments, combined with the cache symlinks created earlier, will help p
 To monitor the NVIDIA GPU memory usage while the script loads and runs, open a new terminal session (or use a multiplexer like tmux/screen) and run:
 
 ```bash
-watch -n 1 nvidia-smi
+  watch -n 1 nvidia-smi
 ```
 
 # or
 
 ```bash
-watch -n 1 "nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,temperature.gpu,fan.speed,memory.total,memory.used,memory.free --format=csv,noheader,nounits"
+  watch -n 1 "nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,temperature.gpu,fan.speed,memory.total,memory.used,memory.free --format=csv,noheader,nounits"
 ```
 
 # or
 
 ```bash
-watch -n 1 "echo 'GPU   Total(MiB)   Used(MiB)'; nvidia-smi --query-gpu=index,memory.total,memory.used --format=csv,noheader,nounits | awk -F',' '{printf \"%-3s %-12s %-10s\n\", \$1, \$2, \$3}'"
+  watch -n 1 "echo 'GPU   Total(MiB)   Used(MiB)'; nvidia-smi --query-gpu=index,memory.total,memory.used --format=csv,noheader,nounits | awk -F',' '{printf \"%-3s %-12s %-10s\n\", \$1, \$2, \$3}'"
 ```
 
-### 12. Monitoring and Managing Disk Space
+### 12. Monitoring Ray Cluster
+
+To monitor the Ray cluster, you can tunnel to the head node and use the Ray dashboard:
+
+```bash
+  ssh -L 8265:127.0.0.1:8265 root@${HEAD_NODE_IP} -p 10217 -i ~/.ssh/my_runpod_key
+```
+
+Then open the Ray dashboard in your browser:
+
+http://localhost:8265
+
+
+### 13. Monitoring and Managing Disk Space
 
 Running out of disk space is a common issue during training. To monitor disk usage:
 
@@ -291,367 +309,3 @@ find /data/checkpoints -name "global_step*" | sort | head -n -2 | xargs rm -rf
 
 ---
 
-# ARCHIVE of OPTIONAL INSTALLS AND APPROACHES:
-
-
-- **NightlyFlash Attention:**
-```bash
-   pip uninstall -y flash-attn
-   wget -nv https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-   pip install flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-   rm -f flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-```
-
-- **Nightly vLLM build:**
-```bash
-  pip uninstall -y vllm
-  pip install https://vllm-wheels.s3.us-west-2.amazonaws.com/nightly/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl
-```
-  
-For Transformers support (if using Qwen2.5‑VL models) until the next release:
-```bash
-pip install git+https://github.com/huggingface/transformers.git
-
-OR it could be with a specific commit:
-
-pip install --upgrade --force-reinstall git+https://github.com/huggingface/transformers@f3f6c86582611976e72be054675e2bf0abb5f775
-```
-
-### 10. Start Ray on Your Nodes Manually if you Want Instead of via Script
-
-**Before launching any training scripts, you must start Ray on your pod.**
-
-- **Head Node:**  
-  On the head node, start Ray with:
-```bash
-  ray start --head --dashboard-host=0.0.0.0
-```
-  By default, this will configure job submission and the dashboard on port **8265**. (You can verify this by checking the output.)
-  
-- **Worker Nodes:**  
-  Join the Ray cluster by running:
-```bash
-  ray start --address="203.0.113.5:6379"
-```
-  Replace `203.0.113.5` with your head node's actual public IP.
-
-After executing the appropriate command on each node, verify that Ray is running using:
-```bash
-ray status
-```
-
-### 11. (Optional) Monitoring Ray Metrics with Prometheus and Grafana
-
-In addition to monitoring GPUs and storage, you can set up Prometheus and Grafana in your Ray cluster so you can view detailed metrics.
-
-#### Installing Prometheus
-
-1. **Download and install Prometheus version 3.2.1 (latest):**  
-   ```bash
-   # Create a system user for Prometheus
-   sudo useradd --no-create-home --shell /bin/false prometheus
-   
-   # Create directories for Prometheus
-   sudo mkdir -p /etc/prometheus /var/lib/prometheus
-   
-   # Download Prometheus 3.2.1
-   wget https://github.com/prometheus/prometheus/releases/download/v3.2.1/prometheus-3.2.1.linux-amd64.tar.gz
-   
-   # Extract the tarball
-   tar -xvf prometheus-3.2.1.linux-amd64.tar.gz
-   
-   # Move into the extracted directory
-   cd prometheus-3.2.1.linux-amd64
-   
-   # Copy the binaries to /usr/local/bin
-   sudo cp prometheus promtool /usr/local/bin/
-   
-   # Copy configuration files
-   sudo cp -r consoles console_libraries /etc/prometheus/
-   
-   # Create a basic prometheus.yml configuration
-   sudo tee /etc/prometheus/prometheus.yml > /dev/null <<EOF
-   global:
-     scrape_interval: 2s
-     evaluation_interval: 2s
-   
-   scrape_configs:
-   - job_name: 'ray'
-     file_sd_configs:
-     - files:
-       - '/tmp/ray/prom_metrics_service_discovery.json'
-   EOF
-   
-   # Set proper permissions
-   sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
-   
-   # Create a systemd service file for prometheus
-   sudo tee /etc/systemd/system/prometheus.service > /dev/null <<EOF
-   [Unit]
-   Description=Prometheus
-   Wants=network-online.target
-   After=network-online.target
-   
-   [Service]
-   User=prometheus
-   Group=prometheus
-   Type=simple
-   Restart=on-failure
-   ExecStart=/usr/local/bin/prometheus \\
-       --config.file /etc/prometheus/prometheus.yml \\
-       --storage.tsdb.path /var/lib/prometheus/ \\
-       --web.console.templates=/etc/prometheus/consoles \\
-       --web.console.libraries=/etc/prometheus/console_libraries \\
-       --web.listen-address=0.0.0.0:9090 \\
-       --web.enable-lifecycle
-   
-   [Install]
-   WantedBy=multi-user.target
-   EOF
-   
-   # Reload systemd to apply the new service
-   sudo systemctl daemon-reload
-   
-   # Start and enable Prometheus
-   sudo systemctl start prometheus
-   sudo systemctl enable prometheus
-   
-   # Open port 9090 for Prometheus web interface
-   sudo ufw allow 9090/tcp
-   
-   # Verify Prometheus is running
-   systemctl status prometheus
-   
-   # Access Prometheus web interface at http://your-server-ip:9090
-   ```
-
-#### Installing Grafana
-
-1. **Download and install Grafana 11.5.2 (latest):**  
-   ```bash
-   # Download Grafana 11.5.2 Debian package
-   wget https://dl.grafana.com/oss/release/grafana_11.5.2_amd64.deb
-   
-   # Install the package
-   sudo dpkg -i grafana_11.5.2_amd64.deb
-   
-   # Install any missing dependencies
-   sudo apt-get install -f
-   
-   # Enable and start Grafana service
-   sudo systemctl daemon-reload
-   sudo systemctl enable grafana-server
-   sudo systemctl start grafana-server
-   
-   # Allow access to Grafana web interface (port 3000)
-   sudo ufw allow 3000/tcp
-   
-   # Check Grafana service status
-   sudo systemctl status grafana-server
-   
-   # Create a basic datasource for Prometheus
-   # First create the datasource configuration file
-   sudo mkdir -p /etc/grafana/provisioning/datasources
-   
-   sudo tee /etc/grafana/provisioning/datasources/prometheus.yaml > /dev/null <<EOF
-   apiVersion: 1
-   
-   datasources:
-     - name: Prometheus
-       type: prometheus
-       access: proxy
-       url: http://localhost:9090
-       isDefault: true
-       editable: true
-   EOF
-   
-   # Restart Grafana to apply the datasource configuration
-   sudo systemctl restart grafana-server
-   
-   # Access Grafana web interface at http://your-server-ip:3000
-   # Default login credentials:
-   # Username: admin
-   # Password: admin
-   # You'll be prompted to change the password on first login
-   ```
-
-2. **Import Ray Dashboard:**  
-   After logging in to Grafana:
-   ```bash
-   # Copy the Ray dashboard JSON to a location accessible by Grafana
-   sudo cp /tmp/ray/session_latest/metrics/grafana/dashboards/default_grafana_dashboard.json /tmp/ray_dashboard.json
-   
-   # Set appropriate permissions
-   sudo chmod 644 /tmp/ray_dashboard.json
-   
-   # In the Grafana web interface:
-   # 1. Click on "+" icon in the left sidebar and select "Import"
-   # 2. Click "Upload JSON file" and select the /tmp/ray_dashboard.json file
-   # 3. Select the Prometheus datasource from the dropdown
-   # 4. Click "Import" to finish
-   ```
-
-#### Configuring Ray to Export Metrics
-
-When starting your Ray cluster, include the `--metrics-export-port=8080` flag to have Ray export metrics to that port. For example:
-```bash
-ray start --head --node-ip-address=0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir /data/cache-ray
-```
-Prometheus (using the configuration above) will use the file-based service discovery (located at `/tmp/ray/prom_metrics_service_discovery.json`) to locate and scrape your Ray metrics.
-
-Once you have Prometheus and Grafana running, you will have multiple options:
-- **Using Ray Dashboard:** Access `http://127.0.0.1:8265` to view embedded Grafana visualizations.
-- **Using Grafana directly:** Open `http://localhost:3000` and use your configured dashboard.
-
----
-
-## Update Your Shell Scripts to Use Metrics
-
-You need to update the Ray start command in your job scripts so that Ray is launched with the metrics-export-port configured. For example, update the two scripts as follows:
-
-### Example `train_grpo_ray_hybrid_engine.sh`
-
-Replace the existing Ray start command with one that includes the metrics-export-port flag. For example:
-
-```shell
-#!/bin/bash
-# Use the math12k dataset from HF and our Qwen2.5‑VL–3B model with a formatted prompt.
-export DATASET="hiyouga/math12k"
-
-MODEL_CPK_NAME="qwenvl25_3B_ins_grpo_math"
-PRETRAIN_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
-SAVE_PATH="./ckpts"
-mkdir -p "${SAVE_PATH}/${MODEL_CPK_NAME}"
-
-# Start the remote reward verifier (this will log its output for debugging)
-python3 -m openrlhf.models.remote_rm.math_verifier \
-    --dataset $DATASET \
-    --input_key problem \
-    --prompt-template "Question: {}\nAnswer:" \
-    > "${SAVE_PATH}/${MODEL_CPK_NAME}/remote_rm.log" 2>&1 &
-childpid=$!
-
-# Start Ray on the head node with 2 GPUs and export metrics on port 8080.
-ray start --head --node-ip-address 0.0.0.0 --num-gpus 2 --metrics-export-port=8080 --temp-dir /data/cache-ray
-
-# Submit the job using a runtime working directory of /data/OpenRLHF-M.
-ray job submit --address="http://127.0.0.1:8265" \
-   --runtime-env-json='{"working_dir": "/data/OpenRLHF-M"}' \
-   -- python3 -m openrlhf.cli.train_ppo_ray \
-   --ref_num_nodes 1 \
-   --ref_num_gpus_per_node 4 \
-   --actor_num_nodes 1 \
-   --actor_num_gpus_per_node 4 \
-   --critic_num_nodes 1 \
-   --critic_num_gpus_per_node 4 \
-   --vllm_num_engines 4 \
-   --vllm_tensor_parallel_size 1 \
-   --colocate_all_models \
-   --vllm_enable_sleep \
-   --vllm_gpu_memory_utilization 0.5 \
-   --vllm_sync_backend gloo \
-   --enable_prefix_caching \
-   --pretrain $PRETRAIN_MODEL \
-   --reward_pretrain $PRETRAIN_MODEL \
-   --save_path $SAVE_PATH/$MODEL_CPK_NAME \
-   --micro_train_batch_size 2 \
-   --train_batch_size 128 \
-   --micro_rollout_batch_size 4 \
-   --rollout_batch_size 256 \
-   --temperature 1 \
-   --n_samples_per_prompt 16 \
-   --max_epochs 1 \
-   --num_episodes 30 \
-   --prompt_max_len 1024 \
-   --max_samples 100000 \
-   --generate_max_len 1024 \
-   --zero_stage 3 \
-   --bf16 \
-   --actor_learning_rate 5e-7 \
-   --critic_learning_rate 9e-6 \
-   --init_kl_coef 1e-3 \
-   --gamma 1.0 \
-   --use_kl_loss \
-   --kl_estimator k3 \
-   --advantage_estimator group_norm \
-   --prompt_data $DATASET \
-   --input_key problem \
-   --input_template "Question: {}\nAnswer:" \
-   --normalize_reward \
-   --flash_attn \
-   --gradient_checkpointing \
-   --packing_samples \
-   --enforce_eager \
-   --deepspeed_enable_sleep \
-   --save_steps 10 \
-   --ckpt_path $SAVE_PATH/$MODEL_CPK_NAME/ckpt \
-   --save_hf_ckpt \
-   --use_tensorboard $SAVE_PATH/$MODEL_CPK_NAME/logs
-
-ray stop
-```
-
----
-
-## References
-
-- [Ray Metrics Documentation](https://docs.ray.io/en/latest/cluster/metrics.html)
-- [Prometheus Downloads](https://prometheus.io/download/)
-- [Grafana Downloads](https://grafana.com/grafana/download)
-
----
-
-## Final Thoughts
-
-This guide ensures you have all the tools to deploy OpenRLHF-M on RunPod. OpenRLHF-M's architecture enables efficient distributed training of large language and multimodal models using various reinforcement learning techniques.
-
-Happy RunPodding, and may your training sessions be as rewarding as they are fun!
-
-## Troubleshooting
-
-### CUDA Version Mismatch Issues
-
-A common issue on RunPod is that `nvidia-smi` may show CUDA 12.7, but your container might only have CUDA 11.8 toolkit files. Here's how to handle this mismatch:
-
-1. **Check both the driver's CUDA version and toolkit installation**:
-```bash
-# Check driver's CUDA version
-nvidia-smi
-
-# Check what CUDA toolkit is actually installed
-ls -la /usr/local/cuda*
-```
-
-2. **Use the CUDA version that actually exists in your container**:
-```bash
-# If you only have CUDA 11.8 toolkit
-export CUDA_HOME=/usr/local/cuda-11.8
-export PATH=$CUDA_HOME/bin:$PATH
-export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
-```
-
-3. **Install PyTorch matching your toolkit version**:
-```bash
-# For CUDA 11.8 toolkit
-pip uninstall -y torch torchvision torchaudio
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda)"
-```
-
-4. **For flash-attention with CUDA 11.8**:
-```bash
-# Use the pre-built wheel specifically for CUDA 11.8 and appropriate PyTorch version
-pip install flash-attn --no-build-isolation
-```
-
-### Creating Symlinks (Optional Solution)
-
-If you want to keep using the CUDA 12.7 references in the commands but your system only has CUDA 11.8 toolkit:
-
-```bash
-# Create a symlink from CUDA 12.7 to your actual CUDA toolkit
-sudo ln -sf /usr/local/cuda-11.8 /usr/local/cuda-12.7
-
-# Then you can use the CUDA 12.7 path as in the guide
-export CUDA_HOME=/usr/local/cuda-12.7
-```
