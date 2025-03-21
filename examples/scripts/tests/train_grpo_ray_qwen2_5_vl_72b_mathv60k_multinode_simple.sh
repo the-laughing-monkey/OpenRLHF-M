@@ -34,7 +34,6 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --vllm_tensor_parallel_size 2 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
-         --vllm_sync_with_ray \
          --colocate_all_models \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
