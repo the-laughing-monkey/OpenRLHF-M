@@ -186,59 +186,6 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 ```
 
 
-### 13. Connecting Worker Nodes to Your Cluster
-
-To make effective use of your multi-node cluster, you need to connect worker nodes to your head node:
-
-1. **On the head node**:
-   First, get the ETH1_IP that other nodes will connect to:
-   ```bash
-   export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
-   echo "Head node IP (eth1): ${ETH1_IP}"
-   ```
-
-2. **On each worker node**:
-   SSH into your worker node, then set the head node's IP and prepare the environment:
-   ```bash
-   # Set the head node's eth1 IP address as environment variable
-   export HEAD_NODE_IP=10.65.0.2  # Replace with your head node's actual eth1 IP
-
-   # Configure NCCL for eth1 (CRITICAL for multi-node training)
-   export NCCL_DEBUG=INFO
-   export NCCL_SOCKET_IFNAME=eth1
-
-   # Stop any existing Ray instances
-   ```bash
-    ray stop
-    ```
-
-   # Join the Ray cluster
-   ```bash
-   export HEAD_NODE_IP={YOUR_HEAD_NODE_IP}
-   ray start --address=${HEAD_NODE_IP}:6379
-   ```
-
-3. **Verify connection**:
-   On the head node, check if workers joined:
-   ```bash
-   ray status
-   ```
-   You should see your worker nodes listed in the output.
-
-4. **Test communication**:
-   Ensure nodes can communicate:
-   ```bash
-   # On the head node
-   nc -l -p 9999
-   
-   # On the worker node (in a separate SSH session)
-   echo "test" | nc ${HEAD_NODE_IP} 9999
-   ```
-   
-   If successful, you'll see "test" appear on the head node terminal.
-
-**IMPORTANT:** Make sure all nodes export `NCCL_SOCKET_IFNAME=eth1` before running any training jobs. This ensures that NCCL uses the eth1 interface for node-to-node communication.
-
 ### 14. Run Your First OpenRLHF-M Training Job with MathV60K
 
 Now you're ready to launch a training job using the MathV60K dataset and the Qwen2.5-VL-3B model:
