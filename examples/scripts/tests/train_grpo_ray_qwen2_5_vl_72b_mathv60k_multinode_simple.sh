@@ -44,7 +44,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 32 \
          --vllm_num_engines 8 \
-         --vllm_tensor_parallel_size 8 \
+         --vllm_tensor_parallel_size 4 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --vllm_gpu_memory_utilization 0.4 \
