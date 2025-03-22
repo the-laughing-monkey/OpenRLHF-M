@@ -39,12 +39,12 @@ echo "Using eth1 IP address: ${ETH1_IP}"
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
-         --ref_num_gpus_per_node 16 \
+         --ref_num_gpus_per_node 32 \
          --remote_rm_url http://${ETH1_IP}:5000/get_reward \
          --actor_num_nodes 1 \
-         --actor_num_gpus_per_node 16 \
+         --actor_num_gpus_per_node 32 \
          --vllm_num_engines 8 \
-         --vllm_tensor_parallel_size 2 \
+         --vllm_tensor_parallel_size 8 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --vllm_gpu_memory_utilization 0.4 \
@@ -60,7 +60,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --n_samples_per_prompt 4 \
          --max_epochs 1 \
          --num_episodes 2 \
-         --prompt_max_len 4096 \
+         --prompt_max_len 32768 \
          --max_samples 1000 \
          --generate_max_len 8000 \
          --advantage_estimator group_norm \
