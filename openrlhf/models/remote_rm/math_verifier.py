@@ -2,7 +2,6 @@ import json
 import os
 import random
 import re
-import socket
 from argparse import ArgumentParser
 from multiprocessing import Process, Queue
 
@@ -19,7 +18,7 @@ problem_to_answer = {}
 
 
 def get_response_from_query(q: str):
-    ends_of_sentence = ["<|im_end|>", "", "<|endoftext|>"]
+    ends_of_sentence = ["<|im_end|>", "<｜end▁of▁sentence｜>", "<|endoftext|>"]
     pos = re.search(response_prefix, q)
     if pos is None:
         return None
@@ -143,22 +142,7 @@ if __name__ == "__main__":
         "--input_key", type=str, default="prompt", help="The key name of prompt."
     )
     parser.add_argument("--log_file", type=str, default="remote_rm.log", help="Log file path")
-    parser.add_argument("--host", type=str, default=None, help="IP address to bind to (default: eth1 IP address)")
     args = parser.parse_args()
-    
-    # Get eth1 IP address if host not specified
-    host = args.host
-    if host is None:
-        import subprocess
-        try:
-            # Try to get the eth1 IP using subprocess
-            eth1_ip = subprocess.check_output("ip addr show eth1 | grep -oP 'inet \\K[\\d.]+'", shell=True).decode().strip()
-            host = eth1_ip
-            logger.info(f"Using eth1 IP address: {host}")
-        except subprocess.CalledProcessError:
-            logger.warning("Failed to get eth1 IP address. Falling back to 0.0.0.0")
-            host = "0.0.0.0"
-    
     logger.remove()
     logger.add(args.log_file)
     # Split dataset paths and load all datasets
@@ -199,5 +183,5 @@ if __name__ == "__main__":
     # math_verify can only run in main thread
     math_verify_executor = futures.ProcessPoolExecutor(max_workers=16)
 
-    app.run(host=host, port=5000, debug=False, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
     math_verify_executor.shutdown()
