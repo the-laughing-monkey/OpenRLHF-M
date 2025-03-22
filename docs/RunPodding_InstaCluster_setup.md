@@ -177,7 +177,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 
 3. Start the Ray head node bound only to the eth1 IP:
 ```bash
-    ray start --head --node-ip-address ${ETH1_IP} --public-ip-address ${ETH1_IP} --port=6379 --dashboard-port=8265
+    ray start --head --node-ip-address ${ETH1_IP} --port=6379 --dashboard-port=8265
 ```
 
 
