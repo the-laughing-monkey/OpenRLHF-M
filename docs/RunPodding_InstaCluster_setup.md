@@ -180,8 +180,66 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
     ray start --head --node-ip-address ${ETH1_IP} --port=6379 --dashboard-port=8265
 ```
 
+4. To connect a worker node to the Ray head node, run:
+```bash
+    ray start --address=${ETH1_IP}:6379
+```
 
-### 12. Run Your First OpenRLHF-M Training Job with MathV60K
+
+### 13. Connecting Worker Nodes to Your Cluster
+
+To make effective use of your multi-node cluster, you need to connect worker nodes to your head node:
+
+1. **On the head node**:
+   First, get the ETH1_IP that other nodes will connect to:
+   ```bash
+   export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
+   echo "Head node IP (eth1): ${ETH1_IP}"
+   ```
+
+2. **On each worker node**:
+   SSH into your worker node, then set the head node's IP and prepare the environment:
+   ```bash
+   # Set the head node's eth1 IP address as environment variable
+   export HEAD_NODE_IP=10.65.0.2  # Replace with your head node's actual eth1 IP
+
+   # Configure NCCL for eth1 (CRITICAL for multi-node training)
+   export NCCL_DEBUG=INFO
+   export NCCL_SOCKET_IFNAME=eth1
+
+   # Stop any existing Ray instances
+   ```bash
+    ray stop
+    ```
+
+   # Join the Ray cluster
+   ```bash
+   export HEAD_NODE_IP={YOUR_HEAD_NODE_IP}
+   ray start --address=${HEAD_NODE_IP}:6379
+   ```
+
+3. **Verify connection**:
+   On the head node, check if workers joined:
+   ```bash
+   ray status
+   ```
+   You should see your worker nodes listed in the output.
+
+4. **Test communication**:
+   Ensure nodes can communicate:
+   ```bash
+   # On the head node
+   nc -l -p 9999
+   
+   # On the worker node (in a separate SSH session)
+   echo "test" | nc ${HEAD_NODE_IP} 9999
+   ```
+   
+   If successful, you'll see "test" appear on the head node terminal.
+
+**IMPORTANT:** Make sure all nodes export `NCCL_SOCKET_IFNAME=eth1` before running any training jobs. This ensures that NCCL uses the eth1 interface for node-to-node communication.
+
+### 14. Run Your First OpenRLHF-M Training Job with MathV60K
 
 Now you're ready to launch a training job using the MathV60K dataset and the Qwen2.5-VL-3B model:
 
@@ -270,7 +328,7 @@ Disk space issues can cause training to fail when saving checkpoints. Adjust the
 ```
 
 
-### 11. Monitoring NVIDIA GPU Memory
+### 15. Monitoring NVIDIA GPU Memory
 
 To monitor the NVIDIA GPU memory usage while the script loads and runs, open a new terminal session (or use a multiplexer like tmux/screen) and run:
 
@@ -290,7 +348,7 @@ watch -n 1 "nvidia-smi --query-gpu=timestamp,index,name,utilization.gpu,utilizat
 watch -n 1 "echo 'GPU   Total(MiB)   Used(MiB)'; nvidia-smi --query-gpu=index,memory.total,memory.used --format=csv,noheader,nounits | awk -F',' '{printf \"%-3s %-12s %-10s\n\", \$1, \$2, \$3}'"
 ```
 
-### 12. Monitoring and Managing Disk Space
+### 16. Monitoring and Managing Disk Space
 
 Running out of disk space is a common issue during training. To monitor disk usage:
 
