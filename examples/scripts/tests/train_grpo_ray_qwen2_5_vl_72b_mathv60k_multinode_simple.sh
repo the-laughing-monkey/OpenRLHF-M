@@ -30,6 +30,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
   python3 -m openrlhf.models.remote_rm.math_verifier \
       --dataset "${DATASET_PATH}" \
       --input_key message \
+      --host "${ETH1_IP}" \
       --prompt-template chatml 2>&1 | tee -a "${CUR_LOG_DIR}/remote_rm.log" &
   REMOTE_RM_PID=$!
 
