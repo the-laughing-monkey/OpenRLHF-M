@@ -12,6 +12,9 @@ MODEL_NAME="qwen2.5-vl-72b-ins-mathvista-grpo"
 export NCCL_DEBUG=INFO
 export NCCL_SOCKET_IFNAME=eth1
 
+# Export the eth1 IP address.
+export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
+
 # Check for WandB API key.
 if [ -z "${WANDB_API_KEY}" ]; then
   echo "[INFO] WANDB_API_KEY not set. WandB logging will be disabled."
@@ -35,7 +38,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
 
   # Submit the training job.
   echo "[HEAD NODE] Submitting training job via Ray job submit..."
-  ray job submit --address="http://127.0.0.1:8265" \
+  ray job submit --address="http://${ETH1_IP}:8265" \
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
@@ -60,7 +63,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --n_samples_per_prompt 4 \
          --max_epochs 1 \
          --num_episodes 2 \
-         --prompt_max_len 32768 \
+         --prompt_max_len 128000 \
          --max_samples 1000 \
          --generate_max_len 8000 \
          --advantage_estimator group_norm \
