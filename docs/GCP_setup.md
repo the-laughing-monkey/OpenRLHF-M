@@ -223,6 +223,27 @@ snapshot_download(repo_id=model_name, local_files_only=False)
 print('Download complete!')
 "
 
+
+# Or to download the 7B Qwen2.5-VL-7B-Instruct model:
+python3 -c "
+from huggingface_hub import snapshot_download
+model_name = 'Qwen/Qwen2.5-VL-7B-Instruct'
+print(f'Downloading {model_name} to HuggingFace cache...')
+snapshot_download(repo_id=model_name, local_files_only=False)
+print('Download complete!')
+"
+
+
+# Or to download the 32B Qwen2.5-VL-32B-Instruct model:
+python3 -c "
+from huggingface_hub import snapshot_download
+model_name = 'Qwen/Qwen2.5-VL-32B-Instruct'
+print(f'Downloading {model_name} to HuggingFace cache...')
+snapshot_download(repo_id=model_name, local_files_only=False)
+print('Download complete!')
+"
+
+
 # Or to download the 72B Qwen2.5-VL-72B-Instruct model:
 python3 -c "
 from huggingface_hub import snapshot_download
@@ -232,15 +253,16 @@ snapshot_download(repo_id=model_name, local_files_only=False)
 print('Download complete!')
 "
 
-# Create directories in GCS bucket
-gsutil mkdir -p gs://[YOUR-BUCKET]/model-cache
-
-# Upload the model cache to GCS
+## Upload the model cache to GCS
+# Note: Google Cloud Storage uses a flat namespace, so directories are simulated with object prefixes.
 gsutil -m cp -r ~/.cache/huggingface gs://[YOUR-BUCKET]/model-cache/
 
-# Exit and delete the VM when done
+# Remove any placeholder objects, if present, to keep your bucket clean.
+gsutil rm gs://[YOUR-BUCKET]/model-cache/placeholder.txt || echo "No placeholder found."
+
+# Once the upload is complete, exit the VM and delete the instance
 exit
-gcloud compute instances delete model-cache-prep
+gcloud compute instances delete model-cache-prep --quiet
 ```
 
 #### 3.2 Prepare the MathV60K Dataset
@@ -252,7 +274,8 @@ gcloud compute instances create dataset-prep \
     --boot-disk-size=100GB \
     --image-family=ubuntu-2004-lts \
     --image-project=ubuntu-os-cloud \
-    --scopes=cloud-platform
+    --scopes=cloud-platform \
+    --zone=us-central1-a
 
 # SSH into the VM
 gcloud compute ssh dataset-prep
