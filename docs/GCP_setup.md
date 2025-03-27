@@ -151,8 +151,9 @@ For large language models and datasets, downloading them to your local machine a
 To access the prepared models and datasets from your training nodes, create a script that will mount the GCS bucket and set up the necessary cache symlinks:
 
 ```bash
+cd {/YOUR-PATH-TO-OPENRLHF-M}/OpenRLHF-M
 # Create a GCS mount and cache setup script
-cat > /app/OpenRLHF-M/setup_gcs_mounts.sh << 'EOF'
+cat > ./scripts/setup/setup_gcs_mounts.sh << 'EOF'
 #!/bin/bash
 # Setup model caching with GCS bucket
 GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
@@ -182,7 +183,7 @@ ln -sf /mnt/gcs-cache/model-cache/ray ~/.cache/ray
 mkdir -p /mnt/gcs-cache/checkpoints
 EOF
 
-chmod +x /app/OpenRLHF-M/setup_gcs_mounts.sh
+chmod +x ./examples/scripts/setup/setup_gcs_mounts.sh
 ```
 
 This script will be used on both head and worker nodes before starting the training process.
@@ -190,13 +191,18 @@ This script will be used on both head and worker nodes before starting the train
 #### 3.1 Prepare the Hugging Face Model Cache
 
 ```bash
-# Create a VM to prepare the model cache
+# Create a VM to prepare the model cache.
+# Choose the datacenter that you want for model cache and make sure it matches the region of your GCS bucket:
+# For example, us-central1-a is Iowa, us-east1-a is South Carolina, us-west1-a is Oregon
+
 gcloud compute instances create model-cache-prep \
     --machine-type=n1-standard-8 \
     --boot-disk-size=200GB \
     --image-family=ubuntu-2004-lts \
     --image-project=ubuntu-os-cloud \
-    --scopes=cloud-platform
+    --scopes=cloud-platform \
+    --zone=us-central1-a
+
 
 # SSH into the VM
 gcloud compute ssh model-cache-prep
@@ -227,7 +233,6 @@ print('Download complete!')
 "
 
 # Create directories in GCS bucket
-gsutil mb -p [YOUR-PROJECT] -l us-central1 gs://[YOUR-BUCKET] # if not already created
 gsutil mkdir -p gs://[YOUR-BUCKET]/model-cache
 
 # Upload the model cache to GCS
