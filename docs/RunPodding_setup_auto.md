@@ -89,7 +89,7 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 ### 7. Run setup script to install everything else
 ```bash
   cd /data/OpenRLHF-M
-  bash ./examples/scripts/tests/setup/setup.sh
+  bash ./examples/scripts/setup/setup.sh
 ```
 
 

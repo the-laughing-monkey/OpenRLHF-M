@@ -200,7 +200,7 @@ Before running a training job, you'll need to prepare the dataset:
 ```bash
   cd /data/OpenRLHF-M
   pip install huggingface_hub
-  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+  python3 examples/scripts/downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
 This script will:
