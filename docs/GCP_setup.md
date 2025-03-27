@@ -253,12 +253,10 @@ snapshot_download(repo_id=model_name, local_files_only=False)
 print('Download complete!')
 "
 
-## Upload the model cache to GCS
-# Note: Google Cloud Storage uses a flat namespace, so directories are simulated with object prefixes.
-gsutil -m cp -r ~/.cache/huggingface gs://[YOUR-BUCKET]/model-cache/
 
-# Remove any placeholder objects, if present, to keep your bucket clean.
-gsutil rm gs://[YOUR-BUCKET]/model-cache/placeholder.txt || echo "No placeholder found."
+# Upload the model cache to the models directory in your bucket
+echo "Uploading model cache to gs://[YOUR-BUCKET]/model-cache/"
+gsutil -m cp -r ~/.cache/huggingface gs://[YOUR-BUCKET]/model-cache/
 
 # Once the upload is complete, exit the VM and delete the instance
 exit
@@ -286,10 +284,15 @@ cd OpenRLHF-M
 pip install -r requirements.txt
 python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
 
-# Create dataset directory in GCS bucket if it doesn't exist
-gsutil mkdir -p gs://[YOUR-BUCKET]/datasets
+# Verify bucket exists before uploading
+gsutil ls gs://[YOUR-BUCKET] > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "Error: Bucket gs://[YOUR-BUCKET] does not exist. Please create it first."
+  exit 1
+fi
 
 # Upload the prepared dataset to GCS
+echo "Uploading MathV60K dataset to gs://[YOUR-BUCKET]/datasets/"
 gsutil -m cp -r ./datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
 
 # Exit and delete the VM when done
