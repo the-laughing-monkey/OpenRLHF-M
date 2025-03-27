@@ -46,9 +46,6 @@ Before proceeding, ensure your local environment is properly set up:
    gcloud services enable aiplatform.googleapis.com storage.googleapis.com containerregistry.googleapis.com compute.googleapis.com
 
 
-6. Create a Cloud Storage bucket for your assets:
-   gsutil mb -p YOUR_PROJECT_ID -l us-central1 gs://YOUR_BUCKET_NAME
-
 ## Setup Process
 
 ### 1. Create a GCS Bucket
@@ -60,13 +57,18 @@ First, create a Google Cloud Storage bucket to store your datasets, model checkp
 gsutil mb -p [YOUR-PROJECT] -l us-central1 gs://[YOUR-BUCKET]
 ```
 
+# Sanity Check: Verify that the bucket was created
+```bash
+gsutil ls gs://[YOUR-BUCKET]
+```
+
 ### 2. Build a Custom Docker Container
 
 Create a Dockerfile that includes all necessary dependencies for OpenRLHF-M:
 
 ```bash
 # Create a directory for your Dockerfile
-mkdir -p openrlhf-docker && cd openrlhf-docker
+mkdir -p dockerfile/gcp && cd dockerfile/gcp
 
 # Create the Dockerfile
 cat > Dockerfile << 'EOF'
@@ -126,8 +128,8 @@ WORKDIR /app/OpenRLHF-M
 CMD ["/bin/bash"]
 EOF
 
-# Build the Docker image (replace [YOUR-PROJECT-ID] with your GCP project ID)
-docker build -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest .
+# Build the Docker image for the amd64 architecture
+docker buildx build --platform linux/amd64 -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest .
 
 # Push the Docker image to GCP Container Registry
 docker push gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
