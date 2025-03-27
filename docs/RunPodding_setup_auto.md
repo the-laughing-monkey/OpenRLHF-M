@@ -136,8 +136,7 @@ Before running a training job, you'll need to prepare the dataset:
 2. Download and prepare the MathV60K dataset:
 ```bash
   cd /data/OpenRLHF-M
-  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
-  python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
+  python3 examples/scripts/downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
 This script will:

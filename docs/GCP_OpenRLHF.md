@@ -134,7 +134,7 @@ docker buildx build --platform linux/amd64 -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-
 # Initialize Docker Container Registry: Configure docker to use gcloud as a credential helper
 # This step is required to push your image to GCP Container Registry
 # If you encounter an error regarding the Artifact Registry API (e.g., "denied: Artifact Registry API has not been used in project [YOUR-PROJECT-ID] before or it is disabled"),
-# enable it by visiting: https://console.developers.google.com/apis/api/artifactregistry.googleapis.com/overview?project=[YOUR-PROJECT-ID]
+# enable it by visiting and clicking "Enable": https://console.developers.google.com/apis/api/artifactregistry.googleapis.com/overview?project=[YOUR-PROJECT-ID]
 # then wait a few minutes for the action to propagate and retry.
 gcloud auth configure-docker
 
