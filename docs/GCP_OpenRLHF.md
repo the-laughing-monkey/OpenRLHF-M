@@ -7,19 +7,47 @@ This document provides comprehensive instructions for deploying and running Open
 In this setup, we'll use:
 - **Container Registry**: For storing our custom Docker image with all dependencies
 - **Cloud Storage**: For datasets and model checkpoints
-- **Vertex AI VMs**: a2-ultragpu-2g instances (2 x A100 GPUs) for training
+- **Vertex AI VMs**: for training
 - **Ray**: For distributed multinode training
 
-## Prerequisites
+- **Prerequisites for running OpenRLHF-M:**
+   - A Google Cloud Platform account with a project.
+   - Billing enabled for your project.
+   - Google Cloud SDK (gcloud) installed and configured on your local machine.
+   - Docker installed on your local machine.
+   - Sufficient quota for a2-ultragpu-2g instances in your preferred region.
+   - A service account with the necessary permissions:
+       • Vertex AI User (roles/aiplatform.user)
+       • Storage Admin (roles/storage.admin)
+       • Container Registry Writer (roles/containerregistry.writer)
 
-- A Google Cloud Platform account with Vertex AI API enabled
-- Google Cloud SDK (`gcloud`) installed and configured on your local machine
-- Docker installed on your local machine
-- Sufficient quota for a2-ultragpu-2g instances in your preferred region
-- A service account with necessary permissions:
-  - Vertex AI User
-  - Storage Admin
-  - Container Registry Writer
+## Preliminary Steps
+
+Before proceeding, ensure your local environment is properly set up:
+
+1. Update the Google Cloud CLI:
+   gcloud components update
+
+2. Authenticate with Google Cloud:
+   gcloud auth application-default login
+
+3. Select or create a Google Cloud project:
+   - List projects: gcloud projects list
+   - Create a new project: gcloud projects create YOUR_PROJECT_ID
+   - Set the active project: gcloud config set project YOUR_PROJECT_ID
+
+4. Enable billing for your project:
+   - Ensure that a billing account is attached to your project.
+   - To attach a billing account:
+       a. Open the Google Cloud Console and navigate to the Billing section.
+       b. Select your project and choose to link or set up a billing account. For more details, see https://cloud.google.com/billing/docs/how-to/modify-project.
+
+5. Now weill install the various services we need for running OpenRLHF-M on GCP:
+   gcloud services enable aiplatform.googleapis.com storage.googleapis.com containerregistry.googleapis.com compute.googleapis.com
+
+
+6. Create a Cloud Storage bucket for your assets:
+   gsutil mb -p YOUR_PROJECT_ID -l us-central1 gs://YOUR_BUCKET_NAME
 
 ## Setup Process
 
