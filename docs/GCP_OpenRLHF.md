@@ -7,7 +7,7 @@ This document provides comprehensive instructions for deploying and running Open
 In this setup, we'll use:
 - **Container Registry**: For storing our custom Docker image with all dependencies
 - **Cloud Storage**: For datasets and model checkpoints
-- **Vertex AI VMs**: a2-ultragpu-2g instances (2x A100 GPUs) for training
+- **Vertex AI VMs**: a2-ultragpu-2g instances (2 x A100 GPUs) for training
 - **Ray**: For distributed multinode training
 
 ## Prerequisites
@@ -57,8 +57,15 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     iputils-ping \
     netcat \
+    lsof \
+    fuse \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install gcsfuse for GCS bucket mounting
+RUN curl -L https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v1.1.0/gcsfuse_1.1.0_amd64.deb > gcsfuse.deb && \
+    dpkg -i gcsfuse.deb && \
+    rm gcsfuse.deb
 
 # Install Python dependencies
 RUN pip install --no-cache-dir \
@@ -78,192 +85,17 @@ RUN git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git /app/OpenRLH
 WORKDIR /app/OpenRLHF-M
 RUN pip install -e .
 
-# Copy the training script
-COPY train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh /app/OpenRLHF-M/examples/scripts/tests/
+# The training script is already in the repository at:
+# /app/OpenRLHF-M/examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 
-# Set proper permissions
-RUN chmod +x /app/OpenRLHF-M/examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
+# Create directories for GCS mounting
+RUN mkdir -p /mnt/gcs-cache /mnt/gcs-datasets
 
 # Set working directory
 WORKDIR /app/OpenRLHF-M
 
 # Default command
 CMD ["/bin/bash"]
-EOF
-
-# Create entrypoint script as a wrapper for the training script
-cat > train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh << 'EOF'
-#!/bin/bash
-#=============================================================================
-# GCP Vertex AI Simplified Multinode Training Script for OpenRLHF-M MathV60K
-#=============================================================================
-# Usage:
-#   On the head node: simply run the script (without GCP_WORKER set).
-#   On worker nodes: set GCP_WORKER=1 and GCP_HEAD_IP to the head node's IP address.
-#
-# Configure the following parameters as needed:
-GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
-DATASET_PATH="${DATASET_PATH:-${GCS_BUCKET}/datasets/VerMulti/mathv60k_message.jsonl}"
-PRETRAIN_MODEL_PATH="${PRETRAIN_MODEL_PATH:-Qwen/Qwen2.5-VL-3B-Instruct}"
-SAVE_PATH="${SAVE_PATH:-${GCS_BUCKET}/checkpoints}"
-MODEL_NAME="${MODEL_NAME:-qwen2.5-vl-3b-ins-mathvista-grpo}"
-EXPECTED_WORKERS="${EXPECTED_WORKERS:-1}"
-
-# NCCL configuration for GCP networking
-export NCCL_DEBUG=INFO
-export NCCL_SOCKET_IFNAME=eth0
-
-RAY_PORT=6379
-DASHBOARD_PORT=8265
-REWARD_MODEL_PORT=5000
-
-# Check WandB API key
-if [ -z "${WANDB_API_KEY}" ]; then
-  echo "[INFO] WANDB_API_KEY not set. WandB logging will be disabled."
-  WANDB_ARGS=""
-else
-  echo "[INFO] WANDB_API_KEY found. WandB logging enabled."
-  WANDB_ARGS="--use_wandb ${WANDB_API_KEY} --wandb_run_name ${MODEL_NAME} --wandb_group \"openrlhf-m-gcp\""
-fi
-
-# Setup logging directory
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_DIR="./logs/${MODEL_NAME}"
-CUR_LOG_DIR="${LOG_DIR}/${TIMESTAMP}"
-mkdir -p "${CUR_LOG_DIR}"
-
-if [ -z "${GCP_WORKER}" ]; then
-    echo "=========================================================="
-    echo "Starting as HEAD NODE"
-    echo "=========================================================="
-    ray stop || true
-    ray start --head --node-ip-address=0.0.0.0 --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --num-gpus=2
-    echo "Ray head started. Dashboard available at http://localhost:${DASHBOARD_PORT}"
-
-    # Start the remote reward model server
-    echo "Starting remote reward model server..."
-    python -m openrlhf.models.remote_rm.math_verifier \
-        --dataset "${DATASET_PATH}" \
-        --input_key message \
-        --prompt-template chatml 2>&1 | tee -a "${CUR_LOG_DIR}/remote_rm.log" &
-    REMOTE_RM_PID=$!
-    
-    echo "Waiting for remote reward model server to initialize..."
-    sleep 10
-    
-    # Get this node's IP address for reward model URL
-    HEAD_IP=$(hostname -i)
-    REWARD_MODEL_URL="http://${HEAD_IP}:${REWARD_MODEL_PORT}/get_reward"
-    
-    # Wait for worker nodes
-    echo "Waiting for worker nodes to join the cluster..."
-    WORKER_RETRY=0
-    MAX_WORKER_RETRIES=20
-    
-    while true; do
-      WORKER_COUNT=$(ray status 2>/dev/null | grep "alive" | wc -l)
-      WORKER_COUNT=$((WORKER_COUNT - 1)) # Subtract 1 for head node
-      
-      if [ $WORKER_COUNT -ge $EXPECTED_WORKERS ]; then
-        echo "All expected worker nodes ($EXPECTED_WORKERS) have joined."
-        break
-      fi
-      
-      echo "Waiting for workers... ($WORKER_COUNT/$EXPECTED_WORKERS joined)"
-      sleep 10
-      WORKER_RETRY=$((WORKER_RETRY+1))
-      
-      if [ $WORKER_RETRY -ge $MAX_WORKER_RETRIES ]; then
-        echo "[WARNING] Not all workers joined. Proceeding with $WORKER_COUNT workers."
-        break
-      fi
-    done
-    
-    # Calculate GPU parameters based on detected worker count
-    TOTAL_NODES=$((WORKER_COUNT + 1)) # Including head node
-    TOTAL_GPUS_PER_NODE=8
-    TOTAL_GPUS=$((TOTAL_GPUS_PER_NODE * TOTAL_NODES))
-
-    # Total actor GPUs available (actor_num_nodes * actor_num_gpus_per_node) equals TOTAL_GPUS
-    ACTOR_TOTAL_GPUS=${TOTAL_GPUS}
-
-    # Set VLLM_NUM_ENGINES to 8 if sufficient GPUs are available; otherwise use all available GPUs
-    if [ ${ACTOR_TOTAL_GPUS} -ge 8 ]; then
-        VLLM_NUM_ENGINES=8
-    else
-        VLLM_NUM_ENGINES=${ACTOR_TOTAL_GPUS}
-    fi
-
-    # Set VLLM_TENSOR_PARALLEL_SIZE so that its product with VLLM_NUM_ENGINES equals ACTOR_TOTAL_GPUS
-    VLLM_TENSOR_PARALLEL_SIZE=$(( ACTOR_TOTAL_GPUS / VLLM_NUM_ENGINES ))
-
-    echo "Submitting training job..."
-    ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
-      --runtime-env-json='{"working_dir": "$(pwd)"}' \
-      -- python3 -m openrlhf.cli.train_ppo_ray \
-         --ref_num_nodes 1 \
-         --ref_num_gpus_per_node ${TOTAL_GPUS} \
-         --remote_rm_url "${REWARD_MODEL_URL}" \
-         --actor_num_nodes 1 \
-         --actor_num_gpus_per_node ${TOTAL_GPUS} \
-         --vllm_num_engines ${VLLM_NUM_ENGINES} \
-         --vllm_tensor_parallel_size ${VLLM_TENSOR_PARALLEL_SIZE} \
-         --colocate_all_models \
-         --vllm_enable_sleep \
-         --vllm_gpu_memory_utilization 0.4 \
-         --vllm_sync_backend nccl \
-         --enable_prefix_caching \
-         --pretrain ${PRETRAIN_MODEL_PATH} \
-         --save_path ${SAVE_PATH}/${MODEL_NAME} \
-         --micro_train_batch_size 1 \
-         --train_batch_size 128 \
-         --micro_rollout_batch_size 1 \
-         --rollout_batch_size 128 \
-         --temperature 1.0 \
-         --n_samples_per_prompt 4 \
-         --max_epochs 1 \
-         --num_episodes 2 \
-         --prompt_max_len 128000 \
-         --max_samples 1000 \
-         --generate_max_len 8000 \
-         --advantage_estimator group_norm \
-         --use_kl_loss \
-         --kl_estimator k3 \
-         --init_kl_coef 1e-3 \
-         --zero_stage 3 \
-         --bf16 \
-         --actor_learning_rate 5e-7 \
-         --prompt_data ${DATASET_PATH} \
-         --input_key message \
-         --normalize_reward \
-         --flash_attn \
-         --lambd 1 \
-         --gamma 1 \
-         --gradient_checkpointing \
-         --save_steps 10 \
-         --max_ckpt_num 2 \
-         --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
-         --save_hf_ckpt \
-         ${WANDB_ARGS} \
-         --use_tensorboard ${LOG_DIR} > "${CUR_LOG_DIR}/train.log" 2>&1
-else
-    echo "=========================================================="
-    echo "Starting as WORKER NODE"
-    echo "=========================================================="
-    if [ -z "${GCP_HEAD_IP}" ]; then
-        echo "[ERROR] GCP_HEAD_IP must be set for worker nodes."
-        exit 1
-    fi
-    ray stop || true
-    echo "Waiting for head node at ${GCP_HEAD_IP}:${RAY_PORT}..."
-    until nc -z ${GCP_HEAD_IP} ${RAY_PORT} 2>/dev/null; do
-       echo "Waiting..."
-       sleep 5
-    done
-    ray start --address=${GCP_HEAD_IP}:${RAY_PORT} --num-gpus=2
-    echo "Worker node connected to Ray cluster."
-    while true; do sleep 60; done
-fi
 EOF
 
 # Build the Docker image (replace [YOUR-PROJECT-ID] with your GCP project ID)
@@ -273,28 +105,103 @@ docker build -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest .
 docker push gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
 ```
 
-### 3. Prepare the MathV60K Dataset
+### 3. Prepare Models and Datasets
 
-You'll need to download and prepare the MathV60K dataset for use with OpenRLHF-M.
+For large language models and datasets, downloading them to your local machine and then uploading to GCS is inefficient. Instead, we'll use temporary VMs to prepare both models and datasets directly in the cloud.
 
-#### Option 1: Prepare Locally and Upload to GCS
+### 3.0 Create GCS Mount Script
+
+To access the prepared models and datasets from your training nodes, create a script that will mount the GCS bucket and set up the necessary cache symlinks:
 
 ```bash
-# Clone the OpenRLHF-M repository locally if you haven't already
-git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
-cd OpenRLHF-M
+# Create a GCS mount and cache setup script
+cat > /app/OpenRLHF-M/setup_gcs_mounts.sh << 'EOF'
+#!/bin/bash
+# Setup model caching with GCS bucket
+GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
+GCS_BUCKET_NAME=$(echo ${GCS_BUCKET} | sed 's|gs://||')
 
-# Install requirements for dataset preparation
-pip install -r requirements.txt
+echo "Setting up GCS mount and HuggingFace cache symlinks..."
+# Mount GCS bucket if not already mounted
+if ! grep -q "/mnt/gcs-cache" /proc/mounts; then
+    echo "Mounting GCS bucket ${GCS_BUCKET} to /mnt/gcs-cache"
+    gcsfuse --implicit-dirs ${GCS_BUCKET_NAME} /mnt/gcs-cache
+else
+    echo "GCS bucket already mounted at /mnt/gcs-cache"
+fi
 
-# Download and prepare the dataset
-python examples/scripts/data_downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
+# Create directories for model cache if they don't exist in GCS
+mkdir -p /mnt/gcs-cache/model-cache/huggingface
+mkdir -p /mnt/gcs-cache/model-cache/ray
 
-# Upload the prepared dataset to GCS (replace with your bucket)
-gsutil -m cp -r ./datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
+# Create symlinks for huggingface and ray caches
+echo "Creating symlinks for model caches"
+rm -rf ~/.cache/huggingface
+ln -sf /mnt/gcs-cache/model-cache/huggingface ~/.cache/huggingface
+rm -rf ~/.cache/ray
+ln -sf /mnt/gcs-cache/model-cache/ray ~/.cache/ray
+
+# Ensure the model checkpoint directory exists
+mkdir -p /mnt/gcs-cache/checkpoints
+EOF
+
+chmod +x /app/OpenRLHF-M/setup_gcs_mounts.sh
 ```
 
-#### Option 2: Prepare Directly on a Temporary VM
+This script will be used on both head and worker nodes before starting the training process.
+
+#### 3.1 Prepare the Hugging Face Model Cache
+
+```bash
+# Create a VM to prepare the model cache
+gcloud compute instances create model-cache-prep \
+    --machine-type=n1-standard-8 \
+    --boot-disk-size=200GB \
+    --image-family=ubuntu-2004-lts \
+    --image-project=ubuntu-os-cloud \
+    --scopes=cloud-platform
+
+# SSH into the VM
+gcloud compute ssh model-cache-prep
+
+# Then on the VM:
+# Install required packages
+sudo apt-get update && sudo apt-get install -y python3-pip git
+pip install huggingface_hub transformers accelerate
+
+# Download the model to cache
+# For example to download the Qwen2.5-VL-3B-Instruct model:
+python3 -c "
+from huggingface_hub import snapshot_download
+# Replace with your model name
+model_name = 'Qwen/Qwen2.5-VL-3B-Instruct'
+print(f'Downloading {model_name} to HuggingFace cache...')
+snapshot_download(repo_id=model_name, local_files_only=False)
+print('Download complete!')
+"
+
+# Or to download the 72B Qwen2.5-VL-72B-Instruct model:
+python3 -c "
+from huggingface_hub import snapshot_download
+model_name = 'Qwen/Qwen2.5-VL-72B-Instruct'
+print(f'Downloading {model_name} to HuggingFace cache...')
+snapshot_download(repo_id=model_name, local_files_only=False)
+print('Download complete!')
+"
+
+# Create directories in GCS bucket
+gsutil mb -p [YOUR-PROJECT] -l us-central1 gs://[YOUR-BUCKET] # if not already created
+gsutil mkdir -p gs://[YOUR-BUCKET]/model-cache
+
+# Upload the model cache to GCS
+gsutil -m cp -r ~/.cache/huggingface gs://[YOUR-BUCKET]/model-cache/
+
+# Exit and delete the VM when done
+exit
+gcloud compute instances delete model-cache-prep
+```
+
+#### 3.2 Prepare the MathV60K Dataset
 
 ```bash
 # Create a VM to prepare the dataset
@@ -312,7 +219,12 @@ gcloud compute ssh dataset-prep
 git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 cd OpenRLHF-M
 pip install -r requirements.txt
-python examples/scripts/data_downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
+python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
+
+# Create dataset directory in GCS bucket if it doesn't exist
+gsutil mkdir -p gs://[YOUR-BUCKET]/datasets
+
+# Upload the prepared dataset to GCS
 gsutil -m cp -r ./datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
 
 # Exit and delete the VM when done
@@ -330,20 +242,20 @@ gcloud compute instances create openrlhf-head \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --accelerator=type=nvidia-a100-80gb,count=8 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
-    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET]
+    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 
 # Create the worker node VM
 gcloud compute instances create openrlhf-worker1 \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --accelerator=type=nvidia-a100-80gb,count=8 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
-    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET]
+    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 ```
 
 ### 5. Run the Training Job
@@ -354,7 +266,10 @@ gcloud compute instances create openrlhf-worker1 \
 # SSH into the head node
 gcloud compute ssh openrlhf-head
 
-# Start the training process
+# Set up GCS bucket mounting and cache symlinks (this step is required)
+bash /app/OpenRLHF-M/setup_gcs_mounts.sh
+
+# Start the training process using the script already included in the OpenRLHF-M repository
 cd /app/OpenRLHF-M
 bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 ```
@@ -369,21 +284,214 @@ gcloud compute ssh openrlhf-worker1
 HEAD_IP=$(gcloud compute instances describe openrlhf-head \
     --format='get(networkInterfaces[0].networkIP)')
 
-# Start the worker process
+# Set up GCS bucket mounting and cache symlinks (this step is required)
+bash /app/OpenRLHF-M/setup_gcs_mounts.sh
+
+# Start the worker process using the script already included in the OpenRLHF-M repository
 cd /app/OpenRLHF-M
 GCP_WORKER=1 GCP_HEAD_IP=$HEAD_IP bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 ```
 
-## Using Vertex AI Ray Clusters (Alternative Approach)
+## Deployment Options
 
-GCP also offers Ray on Vertex AI, which can simplify cluster management:
+This guide now describes three different deployment options that you can choose from, depending on your management and scaling preferences.
+
+---
+
+### **Option 1: Standard Deployment Using Individual VMs**
+
+In this option, you manually provision your training environment by creating individual VM instances using gcloud. This gives you complete control over each VM's configuration (machine type, GPU accelerators, boot disk size, container images, etc.).
+
+#### Creating the VMs
+
+For example, to create a head node and a worker node using the `a2-ultragpu-2g` machine type (adjust the accelerator count as needed for your GPU requirements), run:
 
 ```bash
-# Install the Vertex AI SDK
-pip install google-cloud-aiplatform
+# Create the head node VM
+gcloud compute instances create openrlhf-head \
+    --machine-type=a2-ultragpu-2g \
+    --maintenance-policy=TERMINATE \
+    --boot-disk-size=200GB \
+    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
+    --scopes=cloud-platform \
+    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 
-# Create a Ray cluster configuration file
-cat > ray_cluster_config.yaml << EOF
+# Create the worker node VM
+gcloud compute instances create openrlhf-worker1 \
+    --machine-type=a2-ultragpu-2g \
+    --maintenance-policy=TERMINATE \
+    --boot-disk-size=200GB \
+    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
+    --scopes=cloud-platform \
+    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
+```
+
+*Note:* Ensure that your chosen instance type supports the desired accelerator count. In this example we're assuming 8 GPUs per node.
+
+*Note:* Alternatively, if your container startup script supports it, you can export the WANDB_API_KEY in your shell environment before launching the container.
+
+---
+
+### **Option 2: Alternative Deployment Using Google Kubernetes Engine (GKE)**
+
+Deploying your training environment on GKE lets you benefit from a fully managed Kubernetes service. This option makes scaling easier by managing a GPU-enabled node pool and deploying your application as pods.
+
+#### Step 1: Create a GPU-Enabled GKE Cluster
+
+Use these commands to create a new cluster with no default nodes and then add a GPU-enabled node pool with 4 nodes (each configured with 8 GPUs):
+
+```bash
+# Create a GKE cluster (with no default nodes)
+gcloud container clusters create openrlhf-cluster \
+    --zone us-central1-a \
+    --num-nodes=0 \
+    --enable-ip-alias
+
+# Create a GPU-enabled node pool with 4 nodes
+gcloud container node-pools create gpu-pool \
+    --cluster=openrlhf-cluster \
+    --zone=us-central1-a \
+    --num-nodes=4 \
+    --machine-type=a2-ultragpu-2g \
+    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --metadata=disable-legacy-endpoints=true
+```
+
+#### Step 2: Deploy Training Pods with a Kubernetes Manifest
+
+Below is an example YAML manifest that deploys one head pod and three worker pods (totaling 4 nodes). Note the inclusion of an init container that handles GCS mounting:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openrlhf-head
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openrlhf-head
+  template:
+    metadata:
+      labels:
+        app: openrlhf-head
+    spec:
+      initContainers:
+      - name: gcs-mount-setup
+        image: gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+        command: ["/bin/bash", "/app/OpenRLHF-M/setup_gcs_mounts.sh"]
+        env:
+        - name: GCS_BUCKET
+          value: "gs://[YOUR-BUCKET]"
+        securityContext:
+          privileged: true  # Required for gcsfuse
+        volumeMounts:
+        - name: fuse
+          mountPath: /dev/fuse
+        - name: cache-volume
+          mountPath: /root/.cache
+      containers:
+      - name: head-container
+        image: gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+        env:
+        - name: GCS_BUCKET
+          value: "gs://[YOUR-BUCKET]"
+        - name: WANDB_API_KEY
+          value: "your-wandb-api-key-here"
+        securityContext:
+          privileged: true  # Required for gcsfuse
+        resources:
+          limits:
+            nvidia.com/gpu: "8"
+        volumeMounts:
+        - name: fuse
+          mountPath: /dev/fuse
+        - name: cache-volume
+          mountPath: /root/.cache
+      volumes:
+      - name: fuse
+        hostPath:
+          path: /dev/fuse
+      - name: cache-volume
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openrlhf-worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: openrlhf-worker
+  template:
+    metadata:
+      labels:
+        app: openrlhf-worker
+    spec:
+      initContainers:
+      - name: gcs-mount-setup
+        image: gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+        command: ["/bin/bash", "/app/OpenRLHF-M/setup_gcs_mounts.sh"]
+        env:
+        - name: GCS_BUCKET
+          value: "gs://[YOUR-BUCKET]"
+        securityContext:
+          privileged: true  # Required for gcsfuse
+        volumeMounts:
+        - name: fuse
+          mountPath: /dev/fuse
+        - name: cache-volume
+          mountPath: /root/.cache
+      containers:
+      - name: worker-container
+        image: gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+        env:
+        - name: GCS_BUCKET
+          value: "gs://[YOUR-BUCKET]"
+        - name: WANDB_API_KEY
+          value: "your-wandb-api-key-here"
+        - name: GCP_WORKER
+          value: "1"
+        securityContext:
+          privileged: true  # Required for gcsfuse
+        resources:
+          limits:
+            nvidia.com/gpu: "8"
+        volumeMounts:
+        - name: fuse
+          mountPath: /dev/fuse
+        - name: cache-volume
+          mountPath: /root/.cache
+      volumes:
+      - name: fuse
+        hostPath:
+          path: /dev/fuse
+      - name: cache-volume
+        emptyDir: {}
+```
+
+Deploy this manifest with:
+
+```bash
+kubectl apply -f your-deployment.yaml
+```
+
+*Note:* Adjust the replica counts and resource limits as needed.
+
+---
+
+### **Option 3: Managed Deployment Using Vertex AI Ray Clusters**
+
+Vertex AI Ray Clusters offer a managed solution where you define your cluster configuration in a YAML file and let Vertex AI handle resource provisioning and cluster management.
+
+#### Step 1: Create a Ray Cluster Configuration File
+
+Create a file named `ray_cluster_config.yaml` with the following content:
+
+```yaml
 cluster_name: openrlhf-ray-cluster
 project_id: [YOUR-PROJECT-ID]
 region: us-central1
@@ -393,29 +501,72 @@ head_node_type: a2-ultragpu-2g
 worker_node_types:
   - machine_type: a2-ultragpu-2g
     accelerator_type: nvidia-a100-80gb
-    accelerator_count: 2
+    accelerator_count: 8
     min_replicas: 1
     max_replicas: 1
 container_image: gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
 env_vars:
   GCS_BUCKET: gs://[YOUR-BUCKET]
-EOF
+  WANDB_API_KEY: "your-wandb-api-key-here"
+# Add startup script to run for each node on cluster
+# This will ensure GCS buckets are mounted and caches properly set up
+startup_script: |
+  #!/bin/bash
+  # Setup model caching with GCS bucket
+  GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
+  GCS_BUCKET_NAME=$(echo ${GCS_BUCKET} | sed 's|gs://||')
 
-# Import and run the Python script to create the Ray cluster
+  echo "Setting up GCS mount and HuggingFace cache symlinks..."
+  # Mount GCS bucket if not already mounted
+  if ! grep -q "/mnt/gcs-cache" /proc/mounts; then
+      echo "Mounting GCS bucket ${GCS_BUCKET} to /mnt/gcs-cache"
+      gcsfuse --implicit-dirs ${GCS_BUCKET_NAME} /mnt/gcs-cache
+  else
+      echo "GCS bucket already mounted at /mnt/gcs-cache"
+  fi
+
+  # Create directories for model cache if they don't exist in GCS
+  mkdir -p /mnt/gcs-cache/model-cache/huggingface
+  mkdir -p /mnt/gcs-cache/model-cache/ray
+
+  # Create symlinks for huggingface and ray caches
+  echo "Creating symlinks for model caches"
+  rm -rf ~/.cache/huggingface
+  ln -sf /mnt/gcs-cache/model-cache/huggingface ~/.cache/huggingface
+  rm -rf ~/.cache/ray
+  ln -sf /mnt/gcs-cache/model-cache/ray ~/.cache/ray
+
+  # Ensure the model checkpoint directory exists
+  mkdir -p /mnt/gcs-cache/checkpoints
+```
+
+#### Step 2: Create the Ray Cluster via Command Line
+
+Install the Vertex AI SDK if you haven't already:
+
+```bash
+pip install google-cloud-aiplatform
+```
+
+Then run the following Python command:
+
+```bash
 python -c "
 from google.cloud import aiplatform
-
-# Initialize the Vertex AI SDK
 aiplatform.init(
     project='[YOUR-PROJECT-ID]',
     location='us-central1',
 )
-
-# Create the Ray cluster
 cluster = aiplatform.RayCluster.create_from_yaml('ray_cluster_config.yaml')
 print(f'Ray cluster dashboard URL: {cluster.get_dashboard_uri()}')
 "
 ```
+
+This will create a managed Ray cluster and print out the URL for the Ray dashboard.
+
+For additional details on using Ray on Vertex AI, refer to the [Ray on Vertex AI documentation](https://cloud.google.com/vertex-ai/docs/open-source/ray-on-vertex-ai/create-cluster) and the [Vertex AI Custom Training documentation](https://cloud.google.com/vertex-ai/docs/training/create-custom-job).
+
+---
 
 ## Monitoring and Managing Your Training Job
 
@@ -459,6 +610,22 @@ gsutil ls gs://[YOUR-BUCKET]/checkpoints/qwen2.5-vl-3b-ins-mathvista-grpo/
 
 ## Troubleshooting
 
+### Cache and Model Loading Issues
+
+If you encounter issues with model loading:
+1. Verify the GCS bucket is properly mounted with `df -h | grep gcs`
+2. Check symlinks are correctly set up with `ls -la ~/.cache/`
+3. Verify the model files exist in the cache with `find ~/.cache/huggingface -name "*.bin" | head`
+4. Check GCS permissions - ensure the service account has Storage Object Viewer role
+
+### Disk Space Management
+
+With the caching system in place, monitor disk space usage:
+1. Check local disk usage: `df -h`
+2. Check cache size: `du -sh ~/.cache/*`
+3. If necessary, clear non-essential cache: `rm -rf ~/.cache/torch/hub` (not huggingface cache)
+4. If disk space is still an issue, increase the boot disk size when creating VMs
+
 ### Ray Cluster Issues
 
 If nodes fail to connect:
@@ -501,3 +668,4 @@ For multinode training workloads, GCP's environment provides excellent networkin
 - [Ray Documentation](https://docs.ray.io/)
 - [OpenRLHF Documentation](https://openrlhf.readthedocs.io/)
 - [Containerizing ML Workloads](https://cloud.google.com/architecture/ml-on-gcp-best-practices) 
+
