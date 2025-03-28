@@ -292,7 +292,7 @@ gcloud compute ssh dataset-prep
 git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 cd OpenRLHF-M
 pip install -r requirements.txt
-python3 examples/scripts/downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
+python3 examples/scripts/downloaders/download_mathv60k.py --root_dir /app/datasets/VerMulti
 
 # Verify bucket exists before uploading
 gsutil ls gs://[YOUR-BUCKET] > /dev/null 2>&1
@@ -303,7 +303,7 @@ fi
 
 # Upload the prepared dataset to GCS
 echo "Uploading MathV60K dataset to gs://[YOUR-BUCKET]/datasets/"
-gsutil -m cp -r ./datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
+gsutil -m cp -r /app/datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
 
 # Exit and delete the VM when done
 exit
