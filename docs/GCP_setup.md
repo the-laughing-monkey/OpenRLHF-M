@@ -119,7 +119,7 @@ RUN pip install -e .
 # /app/OpenRLHF-M/examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 
 # Create directories for GCS mounting
-RUN mkdir -p /mnt/gcs-cache /mnt/gcs-datasets
+RUN mkdir -p /mnt/gcs-cache /app/datasets
 
 # Set working directory
 WORKDIR /app/OpenRLHF-M
@@ -151,9 +151,11 @@ For large language models and datasets, downloading them to your local machine a
 To access the prepared models and datasets from your training nodes, create a script that will mount the GCS bucket and set up the necessary cache symlinks:
 
 ```bash
-cd {/YOUR-PATH-TO-OPENRLHF-M}/OpenRLHF-M
+# Create directory if it doesn't exist
+mkdir -p ./examples/scripts/setup
+
 # Create a GCS mount and cache setup script
-cat > ./scripts/setup/setup_gcs_mounts.sh << 'EOF'
+cat > ./examples/scripts/setup/setup_gcs_mounts.sh << 'EOF'
 #!/bin/bash
 # Setup model caching with GCS bucket
 GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
@@ -178,6 +180,14 @@ rm -rf ~/.cache/huggingface
 ln -sf /mnt/gcs-cache/model-cache/huggingface ~/.cache/huggingface
 rm -rf ~/.cache/ray
 ln -sf /mnt/gcs-cache/model-cache/ray ~/.cache/ray
+
+# Create and set up dataset directories
+echo "Setting up dataset directories"
+mkdir -p /mnt/gcs-cache/datasets
+mkdir -p /app/datasets
+
+# Create symlink for datasets
+ln -sf /mnt/gcs-cache/datasets /app/datasets/VerMulti
 
 # Ensure the model checkpoint directory exists
 mkdir -p /mnt/gcs-cache/checkpoints
@@ -282,7 +292,7 @@ gcloud compute ssh dataset-prep
 git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 cd OpenRLHF-M
 pip install -r requirements.txt
-python3 examples/scripts/data_downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
+python3 examples/scripts/downloaders/download_mathv60k.py --root_dir ./datasets/VerMulti
 
 # Verify bucket exists before uploading
 gsutil ls gs://[YOUR-BUCKET] > /dev/null 2>&1
@@ -297,7 +307,7 @@ gsutil -m cp -r ./datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
 
 # Exit and delete the VM when done
 exit
-gcloud compute instances delete dataset-prep
+gcloud compute instances delete dataset-prep --zone=us-central1-a --quiet
 ```
 
 ### 4. Create a2-ultragpu-2g VMs for Training
@@ -335,7 +345,7 @@ gcloud compute instances create openrlhf-worker1 \
 gcloud compute ssh openrlhf-head
 
 # Set up GCS bucket mounting and cache symlinks (this step is required)
-bash /app/OpenRLHF-M/setup_gcs_mounts.sh
+bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
 
 # Start the training process using the script already included in the OpenRLHF-M repository
 cd /app/OpenRLHF-M
@@ -353,7 +363,7 @@ HEAD_IP=$(gcloud compute instances describe openrlhf-head \
     --format='get(networkInterfaces[0].networkIP)')
 
 # Set up GCS bucket mounting and cache symlinks (this step is required)
-bash /app/OpenRLHF-M/setup_gcs_mounts.sh
+bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
 
 # Start the worker process using the script already included in the OpenRLHF-M repository
 cd /app/OpenRLHF-M

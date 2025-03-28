@@ -23,5 +23,13 @@ ln -sf /mnt/gcs-cache/model-cache/huggingface ~/.cache/huggingface
 rm -rf ~/.cache/ray
 ln -sf /mnt/gcs-cache/model-cache/ray ~/.cache/ray
 
+# Create and set up dataset directories
+echo "Setting up dataset directories"
+mkdir -p /mnt/gcs-cache/datasets
+mkdir -p /app/datasets
+
+# Create symlink for datasets
+ln -sf /mnt/gcs-cache/datasets /app/datasets/VerMulti
+
 # Ensure the model checkpoint directory exists
 mkdir -p /mnt/gcs-cache/checkpoints
