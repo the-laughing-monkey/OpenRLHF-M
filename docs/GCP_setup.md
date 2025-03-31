@@ -275,23 +275,14 @@ gcloud compute instances delete model-cache-prep --quiet
 
 #### 3.2 Prepare the MathV60K Dataset
 
+Now use the same VM to prepare the MathV60K dataset:
+
 ```bash
-# Create a VM to prepare the dataset
-gcloud compute instances create dataset-prep \
-    --machine-type=n1-standard-8 \
-    --boot-disk-size=100GB \
-    --image-family=ubuntu-2004-lts \
-    --image-project=ubuntu-os-cloud \
-    --scopes=cloud-platform \
-    --zone=us-central1-a
+# Ensure the target dataset directory has proper permissions
+sudo mkdir -p /app/datasets/VerMulti
+sudo chown $USER:$USER /app/datasets/VerMulti
 
-# SSH into the VM
-gcloud compute ssh dataset-prep
-
-# Then on the VM:
-git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
-cd OpenRLHF-M
-pip install -r requirements.txt
+# Download and prepare the MathV60K dataset
 python3 examples/scripts/downloaders/download_mathv60k.py --root_dir /app/datasets/VerMulti
 
 # Verify bucket exists before uploading
@@ -305,9 +296,9 @@ fi
 echo "Uploading MathV60K dataset to gs://[YOUR-BUCKET]/datasets/"
 gsutil -m cp -r /app/datasets/VerMulti gs://[YOUR-BUCKET]/datasets/
 
-# Exit and delete the VM when done
+# Once the upload is complete, exit the VM and delete the instance
 exit
-gcloud compute instances delete dataset-prep --zone=us-central1-a --quiet
+gcloud compute instances delete model-cache-prep --quiet
 ```
 
 ### 4. Create a2-ultragpu-2g VMs for Training
@@ -336,7 +327,7 @@ gcloud compute instances create openrlhf-worker1 \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 ```
 
-### 5. Run the Training Job
+### 5. Connect to the VMs and set up the training environment
 
 #### On the Head Node:
 
@@ -347,28 +338,51 @@ gcloud compute ssh openrlhf-head
 # Set up GCS bucket mounting and cache symlinks (this step is required)
 bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
 
+# Start Ray
+    ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
+```
+
+#### On the Worker Node:
+
+First, get the head node's internal IP address **on your local machine**: 
+
+```bash
+# Run this on your local machine
+HEAD_IP=$(gcloud compute instances describe openrlhf-head \
+    --zone=us-central1-a \ # Specify the zone where the head node resides
+    --format='get(networkInterfaces[0].networkIP)')
+echo "Head node IP: $HEAD_IP"
+```
+
+Now, SSH into the worker node and use the obtained IP address:
+
+```bash
+# SSH into the worker node (run on your local machine)
+gcloud compute ssh openrlhf-worker1 --zone=us-central1-a # Specify the zone
+
+# Inside the worker node VM:
+
+# Set up GCS bucket mounting and cache symlinks (this step is required)
+bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
+
+# Connect to the head node's Ray process using the IP you obtained earlier
+# Replace <HEAD_IP> below with the actual IP address printed by the 'echo' command above
+export HEAD_IP=<HEAD_IP>
+ray start --address=${HEAD_IP}:6379
+```
+
+### 6. Run the Training Job
+
+# On the head node:
+
+```bash
 # Start the training process using the script already included in the OpenRLHF-M repository
 cd /app/OpenRLHF-M
 bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 ```
 
-#### On the Worker Node:
 
-```bash
-# SSH into the worker node
-gcloud compute ssh openrlhf-worker1
 
-# Get the head node's internal IP
-HEAD_IP=$(gcloud compute instances describe openrlhf-head \
-    --format='get(networkInterfaces[0].networkIP)')
-
-# Set up GCS bucket mounting and cache symlinks (this step is required)
-bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
-
-# Start the worker process using the script already included in the OpenRLHF-M repository
-cd /app/OpenRLHF-M
-GCP_WORKER=1 GCP_HEAD_IP=$HEAD_IP bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
-```
 
 ## Deployment Options
 
