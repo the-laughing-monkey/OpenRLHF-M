@@ -309,29 +309,38 @@ gcloud compute instances delete model-cache-prep --quiet
 
 ### 4. Create VMs for Training
 
-Now, create head and worker nodes using the a2-ultragpu-2g machine type with A100 GPUs:
+Now, create head and worker nodes using the Deep Learning VM image, which comes with NVIDIA drivers and Docker pre-installed.
 
 ```bash
-# Create the head node VM using A100 GPUs
-gcloud compute instances create-with-container openrlhf-head \
-    --machine-type=a2-ultragpu-2g \
-    --maintenance-policy=TERMINATE \
-    --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
-    --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
-    --scopes=cloud-platform \
-    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
+# Choose the desired PyTorch image family (check Deep Learning Images documentation for latest)
+export IMAGE_FAMILY="pytorch-latest-gpu" 
+export DL_PROJECT="deeplearning-platform-release"
 
-# Create the worker node VM using A100 GPUs
-gcloud compute instances create-with-container openrlhf-worker1 \
+# Create the head node VM using a Deep Learning VM Image
+gcloud compute instances create openrlhf-head \
+    --zone=us-central1-a \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
+    --image-family="${IMAGE_FAMILY}" \
+    --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
     --accelerator=type=nvidia-a100-80gb,count=2 \
-    --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
-    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
+    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here # Metadata accessible via metadata server
+
+# Create the worker node VM using a Deep Learning VM Image
+gcloud compute instances create openrlhf-worker1 \
+    --zone=us-central1-a \
+    --machine-type=a2-ultragpu-2g \
+    --maintenance-policy=TERMINATE \
+    --image-family="${IMAGE_FAMILY}" \
+    --image-project="${DL_PROJECT}" \
+    --boot-disk-size=200GB \
+    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --scopes=cloud-platform \
+    --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here # Metadata accessible via metadata server
 ```
+*Note: Deep Learning VM images include necessary drivers and the NVIDIA Container Toolkit.*
 
 ### 5. Connect to the VMs and set up the training environment
 
@@ -339,13 +348,77 @@ gcloud compute instances create-with-container openrlhf-worker1 \
 
 ```bash
 # SSH into the head node
-gcloud compute ssh openrlhf-head
+gcloud compute ssh openrlhf-head --zone=us-central1-a
+```
 
-# Set up GCS bucket mounting and cache symlinks (this step is required)
-bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
+CRITICAL NOTE: This will prompt you to install the NVIDIA drivers. Say yes.
 
-# Start Ray
-    ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
+# Inside the head node VM:
+
+# 1. Authenticate Docker with gcloud (needed to pull from GCR)
+```bash
+gcloud auth configure-docker
+```
+
+# 2. Pull your custom container image
+```bash
+sudo docker pull gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+```
+
+# 3. Retrieve metadata for environment variables
+```bash
+export GCS_BUCKET_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/GCS_BUCKET)
+export WANDB_API_KEY_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/WANDB_API_KEY)
+```
+
+# 4. Start your container in detached mode
+#    --gpus all: Exposes GPUs using NVIDIA Container Toolkit (pre-installed on DLVM)
+#    --net=host: Allows easy Ray communication between containers on different nodes
+#    --shm-size, --ulimit: Recommended settings for distributed training
+#    --device, --cap-add: Needed for gcsfuse inside the container
+#    --env: Pass metadata variables to the container
+```bash
+sudo docker run -d --name openrlhf-head-container \
+    --gpus all \
+    --net=host \
+    --shm-size=16g \
+    --ulimit memlock=-1 \
+    --device=/dev/fuse \
+    --cap-add SYS_ADMIN \
+    --env GCS_BUCKET="${GCS_BUCKET_METADATA}" \
+    --env WANDB_API_KEY="${WANDB_API_KEY_METADATA}" \
+    gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest sleep infinity
+```
+
+# 5. Login to the container to check it is running and good:
+```bash
+sudo docker exec -it openrlhf-head-container bash
+```
+
+# 6. Check that the GPUs are visible:
+```bash
+nvidia-smi
+```
+
+# 7. Update the code:
+```bash
+cd /app/OpenRLHF-M
+git pull
+```
+
+# 8. Exit the contiainer back to the base VM:
+```bash
+exit
+```
+
+# 9. Run the GCS setup script inside the container
+```bash
+sudo docker exec openrlhf-head-container bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
+```
+
+# 6. Start Ray head inside the container
+```bash
+sudo docker exec openrlhf-head-container ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
 ```
 
 #### On the Worker Node:
@@ -357,34 +430,58 @@ First, get the head node's internal IP address **on your local machine**:
 HEAD_IP=$(gcloud compute instances describe openrlhf-head \
     --zone=us-central1-a \ # Specify the zone where the head node resides
     --format='get(networkInterfaces[0].networkIP)')
-echo "Head node IP: $HEAD_IP"
+echo "Head node IP: $HEAD_IP" 
 ```
 
-Now, SSH into the worker node and use the obtained IP address:
+Now, SSH into the worker node and set up the container:
 
 ```bash
 # SSH into the worker node (run on your local machine)
-gcloud compute ssh openrlhf-worker1 --zone=us-central1-a # Specify the zone
+gcloud compute ssh openrlhf-worker1 --zone=us-central1-a 
 
 # Inside the worker node VM:
 
-# Set up GCS bucket mounting and cache symlinks (this step is required)
-bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
+# 1. Authenticate Docker with gcloud
+gcloud auth configure-docker
 
-# Connect to the head node's Ray process using the IP you obtained earlier
-# Replace <HEAD_IP> below with the actual IP address printed by the 'echo' command above
-export HEAD_IP=<HEAD_IP>
-ray start --address=${HEAD_IP}:6379
+# 2. Pull your custom container image
+sudo docker pull gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+
+# 3. Retrieve metadata for environment variables
+GCS_BUCKET_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/GCS_BUCKET)
+WANDB_API_KEY_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/WANDB_API_KEY)
+
+# 4. Start your container in detached mode (similar flags as head node)
+sudo docker run -d --name openrlhf-worker-container \
+    --gpus all \
+    --net=host \
+    --shm-size=16g \
+    --ulimit memlock=-1 \
+    --device=/dev/fuse \
+    --cap-add SYS_ADMIN \
+    --env GCS_BUCKET="${GCS_BUCKET_METADATA}" \
+    --env WANDB_API_KEY="${WANDB_API_KEY_METADATA}" \
+    gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest sleep infinity
+
+# 5. Run the GCS setup script inside the container
+sudo docker exec openrlhf-worker-container bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
+
+# 6. Connect to the head node's Ray process inside the container
+#    Replace <HEAD_IP> below with the actual IP address printed by the 'echo' command above
+export HEAD_IP=<HEAD_IP> # Set this manually inside the VM shell before running docker exec
+sudo docker exec openrlhf-worker-container ray start --address=${HEAD_IP}:6379
 ```
 
 ### 6. Run the Training Job
 
-# On the head node:
+Connect to the **head node VM** via SSH if you aren't already connected. Then, execute the training script **inside the running head container**:
 
 ```bash
-# Start the training process using the script already included in the OpenRLHF-M repository
-cd /app/OpenRLHF-M
-bash examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
+# SSH into head node (if not already connected)
+# gcloud compute ssh openrlhf-head --zone=us-central1-a
+
+# Execute training script inside the head container
+sudo docker exec openrlhf-head-container bash /app/OpenRLHF-M/examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 ```
 
 
@@ -405,30 +502,35 @@ In this option, you manually provision your training environment by creating ind
 For example, to create a head node and a worker node using the `a2-ultragpu-2g` machine type with 8 A100 GPUs (adjust the accelerator count as needed for your GPU requirements), run:
 
 ```bash
-# Create the head node VM using A100 GPUs
-gcloud compute instances create-with-container openrlhf-head \
+# Choose the desired PyTorch image family (check Deep Learning Images documentation for latest)
+IMAGE_FAMILY="pytorch-latest-gpu" 
+DL_PROJECT="deeplearning-platform-release"
+
+# Create the head node VM using a Deep Learning VM Image
+gcloud compute instances create openrlhf-head \
+    --zone=us-central1-a \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
+    --image-family="${IMAGE_FAMILY}" \
+    --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
     --accelerator=type=nvidia-a100-80gb,count=8 \
-    --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 
-# Create the worker node VM using A100 GPUs
-gcloud compute instances create-with-container openrlhf-worker1 \
+# Create the worker node VM using a Deep Learning VM Image
+gcloud compute instances create openrlhf-worker1 \
+    --zone=us-central1-a \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
+    --image-family="${IMAGE_FAMILY}" \
+    --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
     --accelerator=type=nvidia-a100-80gb,count=8 \
-    --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 ```
-
-*Note:* Ensure that your chosen instance type supports the desired accelerator count. In this example we're assuming 8 GPUs per node.
-
-*Note:* Alternatively, if your container startup script supports it, you can export the WANDB_API_KEY in your shell environment before launching the container.
+*Note:* After creating these VMs, you would follow steps similar to Section 5 (Connect to the VMs...) to configure Docker, pull/run your container, and start Ray on each node before launching the training job as shown in Section 6.
 
 ---
 

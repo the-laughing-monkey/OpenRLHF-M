@@ -7,7 +7,10 @@ echo "Setting up GCS mount and HuggingFace cache symlinks..."
 # Mount GCS bucket if not already mounted
 if ! grep -q "/mnt/gcs-cache" /proc/mounts; then
     echo "Mounting GCS bucket ${GCS_BUCKET} to /mnt/gcs-cache"
-    gcsfuse --implicit-dirs ${GCS_BUCKET_NAME} /mnt/gcs-cache
+    if ! gcsfuse --implicit-dirs ${GCS_BUCKET_NAME} /mnt/gcs-cache; then
+        echo "Error: Failed to mount GCS bucket. Please ensure the container is running with proper privileges (e.g., using --privileged or --cap-add SYS_ADMIN with /dev/fuse access)."
+        exit 1
+    fi
 else
     echo "GCS bucket already mounted at /mnt/gcs-cache"
 fi
