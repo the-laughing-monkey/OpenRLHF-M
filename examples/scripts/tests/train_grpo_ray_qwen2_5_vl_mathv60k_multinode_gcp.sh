@@ -41,8 +41,8 @@ LOG_DIR="./logs/${MODEL_NAME}"
 CUR_LOG_DIR="${LOG_DIR}/${TIMESTAMP}"
 mkdir -p "${CUR_LOG_DIR}"
 
-# Get this node's IP address
-HEAD_IP=$(hostname -i)
+# Get the IP address of the primary network interface (ens7) using ifconfig
+HEAD_IP=$(ifconfig ens7 | grep -oP 'inet \K[\d.]+')
 echo "Using head node IP address: ${HEAD_IP}"
 
 if [ -z "${GCP_WORKER}" ]; then
@@ -130,7 +130,7 @@ if [ -z "${GCP_WORKER}" ]; then
     VLLM_TENSOR_PARALLEL_SIZE=$(( ACTOR_TOTAL_GPUS / VLLM_NUM_ENGINES ))
 
     echo "Submitting training job..."
-    # Use specific head node IP for job submission address
+    # Use loopback address as recommended by Ray startup message
     ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
       --runtime-env-json='{"working_dir": "$(pwd)"}' \
       -- python3 -m openrlhf.cli.train_ppo_ray \
