@@ -129,6 +129,27 @@ if [ -z "${GCP_WORKER}" ]; then
     fi
     VLLM_TENSOR_PARALLEL_SIZE=$(( ACTOR_TOTAL_GPUS / VLLM_NUM_ENGINES ))
 
+    echo "---------------------------------------------------"
+    echo "Verifying parameters before job submission:"
+    echo "HEAD_IP:                  ${HEAD_IP}"
+    echo "DATASET_PATH:             ${DATASET_PATH}"
+    echo "PRETRAIN_MODEL_PATH:      ${PRETRAIN_MODEL_PATH}"
+    echo "SAVE_PATH:                ${SAVE_PATH}/${MODEL_NAME}"
+    echo "MODEL_NAME:               ${MODEL_NAME}"
+    echo "EXPECTED_WORKERS:         ${EXPECTED_WORKERS}"
+    echo "DETECTED_WORKERS:         ${WORKER_COUNT}"
+    echo "TOTAL_NODES:              ${TOTAL_NODES}"
+    echo "TOTAL_GPUS_PER_NODE:      ${TOTAL_GPUS_PER_NODE}"
+    echo "TOTAL_GPUS (Calculated):  ${TOTAL_GPUS}"
+    echo "REWARD_MODEL_URL:         ${REWARD_MODEL_URL}"
+    echo "ACTOR_TOTAL_GPUS:         ${ACTOR_TOTAL_GPUS}"
+    echo "VLLM_NUM_ENGINES:         ${VLLM_NUM_ENGINES}"
+    echo "VLLM_TENSOR_PARALLEL_SIZE:${VLLM_TENSOR_PARALLEL_SIZE}"
+    echo "WANDB_ARGS:               ${WANDB_ARGS:-WandB Disabled}"
+    echo "LOG_DIR:                  ${LOG_DIR}"
+    echo "CUR_LOG_DIR:              ${CUR_LOG_DIR}"
+    echo "---------------------------------------------------"
+
     echo "Submitting training job..."
     # Use loopback address as recommended by Ray startup message
     ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
