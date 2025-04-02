@@ -311,7 +311,7 @@ gcloud compute instances create openrlhf-head \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --accelerator=type=nvidia-a100-80gb,count=2 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
@@ -321,7 +321,7 @@ gcloud compute instances create openrlhf-worker1 \
     --machine-type=a2-ultragpu-2g \
     --maintenance-policy=TERMINATE \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --accelerator=type=nvidia-a100-80gb,count=2 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
