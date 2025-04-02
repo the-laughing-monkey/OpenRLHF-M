@@ -199,7 +199,7 @@ if [ -z "${GCP_WORKER}" ]; then
          --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
          --save_hf_ckpt \
          ${WANDB_ARGS} \
-         --use_tensorboard ${LOG_DIR} > "${CUR_LOG_DIR}/train.log" 2>&1
+         --use_tensorboard ${LOG_DIR}
 else
     echo "=========================================================="
     echo "Starting as WORKER NODE"
