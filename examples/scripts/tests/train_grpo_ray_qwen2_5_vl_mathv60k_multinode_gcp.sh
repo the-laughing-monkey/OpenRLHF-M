@@ -80,9 +80,8 @@ if [ -z "${GCP_WORKER}" ]; then
     EXPECTED_TOTAL_NODES=$((EXPECTED_WORKERS + 1))
 
     while true; do
-      # Use ray status and count alive nodes
-      # Subtract 1 for the head node to get worker count
-      CURRENT_NODE_COUNT=$(ray status 2>/dev/null | grep " alive" | wc -l || echo 0)
+      # Use ray status and count alive nodes matching the specific format
+      CURRENT_NODE_COUNT=$(ray status 2>/dev/null | grep -E '^[[:space:]]+1 node_' | wc -l || echo 0)
 
       if [ $CURRENT_NODE_COUNT -ge $EXPECTED_TOTAL_NODES ]; then
           echo "All expected nodes ($EXPECTED_TOTAL_NODES) have joined."
@@ -104,7 +103,7 @@ if [ -z "${GCP_WORKER}" ]; then
     done
 
     # Recalculate worker count based on final status check
-    CURRENT_NODE_COUNT=$(ray status 2>/dev/null | grep " alive" | wc -l || echo 0)
+    CURRENT_NODE_COUNT=$(ray status 2>/dev/null | grep -E '^[[:space:]]+1 node_' | wc -l || echo 0)
     WORKER_COUNT=$((CURRENT_NODE_COUNT - 1))
     if [ $WORKER_COUNT -lt 0 ]; then WORKER_COUNT=0; fi # Ensure non-negative
 
