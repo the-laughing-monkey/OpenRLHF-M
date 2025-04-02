@@ -384,7 +384,7 @@ sudo docker run -d --name openrlhf-head-container \
     --shm-size=16g \
     --ulimit memlock=-1 \
     --device=/dev/fuse \
-    --cap-add SYS_ADMIN \
+    --privileged \
     --env GCS_BUCKET="${GCS_BUCKET_METADATA}" \
     --env WANDB_API_KEY="${WANDB_API_KEY_METADATA}" \
     gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest sleep infinity
@@ -416,7 +416,7 @@ exit
 sudo docker exec openrlhf-head-container bash /app/OpenRLHF-M/examples/scripts/setup/setup_gcs_mounts.sh
 ```
 
-# 6. Start Ray head inside the container
+# 10. Start Ray head inside the container
 ```bash
 sudo docker exec openrlhf-head-container ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
 ```
@@ -428,7 +428,7 @@ First, get the head node's internal IP address **on your local machine**:
 ```bash
 # Run this on your local machine
 HEAD_IP=$(gcloud compute instances describe openrlhf-head \
-    --zone=us-central1-a \ # Specify the zone where the head node resides
+    --zone=us-central1-a \
     --format='get(networkInterfaces[0].networkIP)')
 echo "Head node IP: $HEAD_IP" 
 ```
@@ -448,8 +448,8 @@ gcloud auth configure-docker
 sudo docker pull gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
 
 # 3. Retrieve metadata for environment variables
-GCS_BUCKET_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/GCS_BUCKET)
-WANDB_API_KEY_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/WANDB_API_KEY)
+export GCS_BUCKET_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/GCS_BUCKET)
+export WANDB_API_KEY_METADATA=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/WANDB_API_KEY)
 
 # 4. Start your container in detached mode (similar flags as head node)
 sudo docker run -d --name openrlhf-worker-container \
@@ -458,7 +458,7 @@ sudo docker run -d --name openrlhf-worker-container \
     --shm-size=16g \
     --ulimit memlock=-1 \
     --device=/dev/fuse \
-    --cap-add SYS_ADMIN \
+    --privileged \
     --env GCS_BUCKET="${GCS_BUCKET_METADATA}" \
     --env WANDB_API_KEY="${WANDB_API_KEY_METADATA}" \
     gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest sleep infinity
@@ -468,13 +468,35 @@ sudo docker exec openrlhf-worker-container bash /app/OpenRLHF-M/examples/scripts
 
 # 6. Connect to the head node's Ray process inside the container
 #    Replace <HEAD_IP> below with the actual IP address printed by the 'echo' command above
-export HEAD_IP=<HEAD_IP> # Set this manually inside the VM shell before running docker exec
+export HEAD_IP=$HEAD_IP # Set this manually inside the VM shell before running docker exec
 sudo docker exec openrlhf-worker-container ray start --address=${HEAD_IP}:6379
 ```
 
 ### 6. Run the Training Job
 
 Connect to the **head node VM** via SSH if you aren't already connected. Then, execute the training script **inside the running head container**:
+
+Edit these lines to the correct values for your environment:
+
+# Login to the container to check it is running and good:
+```bash
+sudo docker exec -it openrlhf-head-container bash
+vi /app/OpenRLHF-M/examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
+
+```
+
+# Configure the following parameters as needed:
+GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
+DATASET_PATH="${DATASET_PATH:-${GCS_BUCKET}/datasets/VerMulti/mathv60k_message.jsonl}"
+PRETRAIN_MODEL_PATH="${PRETRAIN_MODEL_PATH:-Qwen/Qwen2.5-VL-3B-Instruct}"
+SAVE_PATH="${SAVE_PATH:-${GCS_BUCKET}/checkpoints}"
+MODEL_NAME="${MODEL_NAME:-qwen2.5-vl-3b-ins-mathvista-grpo}"
+EXPECTED_WORKERS="${EXPECTED_WORKERS:-1}"
+
+# NCCL configuration for GCP networking
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=ens7
+
 
 ```bash
 # SSH into head node (if not already connected)
