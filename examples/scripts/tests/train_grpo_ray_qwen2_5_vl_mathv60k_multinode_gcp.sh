@@ -41,6 +41,10 @@ LOG_DIR="./logs/${MODEL_NAME}"
 CUR_LOG_DIR="${LOG_DIR}/${TIMESTAMP}"
 mkdir -p "${CUR_LOG_DIR}"
 
+# Get this node's IP address
+HEAD_IP=$(hostname -i)
+echo "Using head node IP address: ${HEAD_IP}"
+
 if [ -z "${GCP_WORKER}" ]; then
     echo "=========================================================="
     echo "Starting as HEAD NODE"
@@ -48,8 +52,9 @@ if [ -z "${GCP_WORKER}" ]; then
     # Check if Ray is already running
     if ! ray status > /dev/null 2>&1; then
         echo "Starting Ray head node..."
-        ray start --head --node-ip-address=0.0.0.0 --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --num-gpus=2
-        echo "Ray head started. Dashboard available at http://localhost:${DASHBOARD_PORT}"
+        # Use specific node IP
+        ray start --head --node-ip-address=${HEAD_IP} --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --num-gpus=2 
+        echo "Ray head started. Dashboard available at http://${HEAD_IP}:${DASHBOARD_PORT}"
     else
         echo "Ray is already running."
     fi
@@ -65,34 +70,44 @@ if [ -z "${GCP_WORKER}" ]; then
     echo "Waiting for remote reward model server to initialize..."
     sleep 10
     
-    # Get this node's IP address for reward model URL
-    HEAD_IP=$(hostname -i)
+    # Use specific HEAD_IP for reward model URL
     REWARD_MODEL_URL="http://${HEAD_IP}:${REWARD_MODEL_PORT}/get_reward"
     
-    # Wait for worker nodes
+    # Wait for worker nodes using a more robust method
     echo "Waiting for worker nodes to join the cluster..."
     WORKER_RETRY=0
-    MAX_WORKER_RETRIES=20
-    
+    MAX_WORKER_RETRIES=30 # Increased retries
+    EXPECTED_NODES=$((EXPECTED_WORKERS + 1))
+
     while true; do
-      WORKER_COUNT=$(ray status 2>/dev/null | grep "alive" | wc -l)
-      WORKER_COUNT=$((WORKER_COUNT - 1)) # Subtract 1 for head node
+      # Count nodes using 'ray nodes list' which is more reliable
+      NODE_COUNT=$(ray nodes list --format='{node_id}' | wc -l || echo 0) # Get node count, default to 0 on error
       
-      if [ $WORKER_COUNT -ge $EXPECTED_WORKERS ]; then
-        echo "All expected worker nodes ($EXPECTED_WORKERS) have joined."
+      if [ $NODE_COUNT -ge $EXPECTED_NODES ]; then
+        echo "All expected nodes ($EXPECTED_NODES) have joined."
         break
       fi
       
-      echo "Waiting for workers... ($WORKER_COUNT/$EXPECTED_WORKERS joined)"
+      # Calculate current worker count for display
+      CURRENT_WORKERS=$((NODE_COUNT - 1))
+      # Ensure worker count isn't negative if only head node is seen
+      if [ $CURRENT_WORKERS -lt 0 ]; then CURRENT_WORKERS=0; fi 
+      
+      echo "Waiting for workers... ($CURRENT_WORKERS/$EXPECTED_WORKERS joined)"
       sleep 10
       WORKER_RETRY=$((WORKER_RETRY+1))
       
       if [ $WORKER_RETRY -ge $MAX_WORKER_RETRIES ]; then
-        echo "[WARNING] Not all workers joined. Proceeding with $WORKER_COUNT workers."
+        echo "[WARNING] Timeout waiting for workers. Proceeding with $CURRENT_WORKERS workers."
         break
       fi
     done
-    
+
+    # Recalculate worker count based on final node count
+    NODE_COUNT=$(ray nodes list --format='{node_id}' | wc -l || echo 0)
+    WORKER_COUNT=$((NODE_COUNT - 1))
+    if [ $WORKER_COUNT -lt 0 ]; then WORKER_COUNT=0; fi # Ensure non-negative
+
     # Calculate GPU parameters based on detected worker count
     TOTAL_NODES=$((WORKER_COUNT + 1)) # Including head node
     TOTAL_GPUS=$((TOTAL_GPUS_PER_NODE * TOTAL_NODES))
@@ -108,10 +123,16 @@ if [ -z "${GCP_WORKER}" ]; then
     fi
 
     # Set VLLM_TENSOR_PARALLEL_SIZE so that its product with VLLM_NUM_ENGINES equals ACTOR_TOTAL_GPUS
+    # Ensure VLLM_NUM_ENGINES is not zero before division
+    if [ ${VLLM_NUM_ENGINES} -eq 0 ]; then
+        echo "[ERROR] VLLM_NUM_ENGINES cannot be zero. Check GPU detection."
+        exit 1
+    fi
     VLLM_TENSOR_PARALLEL_SIZE=$(( ACTOR_TOTAL_GPUS / VLLM_NUM_ENGINES ))
 
     echo "Submitting training job..."
-    ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
+    # Use specific head node IP for job submission address
+    ray job submit --address="http://${HEAD_IP}:${DASHBOARD_PORT}" \
       --runtime-env-json='{"working_dir": "$(pwd)"}' \
       -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
