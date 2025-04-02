@@ -73,24 +73,24 @@ if [ -z "${GCP_WORKER}" ]; then
     # Use specific HEAD_IP for reward model URL
     REWARD_MODEL_URL="http://${HEAD_IP}:${REWARD_MODEL_PORT}/get_reward"
     
-    # Wait for worker nodes using a more robust method
+    # Wait for worker nodes using ray status
     echo "Waiting for worker nodes to join the cluster..."
     WORKER_RETRY=0
-    MAX_WORKER_RETRIES=30 # Increased retries
-    EXPECTED_NODES=$((EXPECTED_WORKERS + 1))
+    MAX_WORKER_RETRIES=30 
+    EXPECTED_TOTAL_NODES=$((EXPECTED_WORKERS + 1))
 
     while true; do
-      # Count nodes using 'ray nodes list' which is more reliable
-      NODE_COUNT=$(ray nodes list --format='{node_id}' | wc -l || echo 0) # Get node count, default to 0 on error
-      
-      if [ $NODE_COUNT -ge $EXPECTED_NODES ]; then
-        echo "All expected nodes ($EXPECTED_NODES) have joined."
-        break
+      # Use ray status and count alive nodes
+      # Subtract 1 for the head node to get worker count
+      CURRENT_NODE_COUNT=$(ray status 2>/dev/null | grep " alive" | wc -l || echo 0)
+
+      if [ $CURRENT_NODE_COUNT -ge $EXPECTED_TOTAL_NODES ]; then
+          echo "All expected nodes ($EXPECTED_TOTAL_NODES) have joined."
+          break
       fi
       
       # Calculate current worker count for display
-      CURRENT_WORKERS=$((NODE_COUNT - 1))
-      # Ensure worker count isn't negative if only head node is seen
+      CURRENT_WORKERS=$((CURRENT_NODE_COUNT - 1))
       if [ $CURRENT_WORKERS -lt 0 ]; then CURRENT_WORKERS=0; fi 
       
       echo "Waiting for workers... ($CURRENT_WORKERS/$EXPECTED_WORKERS joined)"
@@ -103,9 +103,9 @@ if [ -z "${GCP_WORKER}" ]; then
       fi
     done
 
-    # Recalculate worker count based on final node count
-    NODE_COUNT=$(ray nodes list --format='{node_id}' | wc -l || echo 0)
-    WORKER_COUNT=$((NODE_COUNT - 1))
+    # Recalculate worker count based on final status check
+    CURRENT_NODE_COUNT=$(ray status 2>/dev/null | grep " alive" | wc -l || echo 0)
+    WORKER_COUNT=$((CURRENT_NODE_COUNT - 1))
     if [ $WORKER_COUNT -lt 0 ]; then WORKER_COUNT=0; fi # Ensure non-negative
 
     # Calculate GPU parameters based on detected worker count
