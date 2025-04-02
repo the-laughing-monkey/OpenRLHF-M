@@ -309,25 +309,25 @@ gcloud compute instances delete model-cache-prep --quiet
 
 ### 4. Create a2-ultragpu-2g VMs for Training
 
-Now, create head and worker nodes using the a2-ultragpu-2g machine type:
+Now, create head and worker nodes using the a3-highgpu-8g machine type with H100 GPUs:
 
 ```bash
-# Create the head node VM
-gcloud compute instances create openrlhf-head \
-    --machine-type=a2-ultragpu-2g \
-    --maintenance-policy=TERMINATE \
+# Create the head node VM using H100 GPUs (Preemptible/Spot)
+gcloud compute instances create-with-container openrlhf-head \
+    --machine-type=a3-highgpu-8g \
+    --maintenance-policy=TERMINATE --provisioning-model=SPOT \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --accelerator=type=nvidia-h100-80gb,count=2 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 
-# Create the worker node VM
-gcloud compute instances create openrlhf-worker1 \
-    --machine-type=a2-ultragpu-2g \
-    --maintenance-policy=TERMINATE \
+# Create the worker node VM using H100 GPUs (Preemptible/Spot)
+gcloud compute instances create-with-container openrlhf-worker1 \
+    --machine-type=a3-highgpu-8g \
+    --maintenance-policy=TERMINATE --provisioning-model=SPOT \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --accelerator=type=nvidia-h100-80gb,count=2 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
@@ -402,25 +402,25 @@ In this option, you manually provision your training environment by creating ind
 
 #### Creating the VMs
 
-For example, to create a head node and a worker node using the `a2-ultragpu-2g` machine type (adjust the accelerator count as needed for your GPU requirements), run:
+For example, to create a head node and a worker node using the `a3-highgpu-8g` machine type with 8 H100 GPUs (adjust the accelerator count as needed for your GPU requirements), run:
 
 ```bash
-# Create the head node VM
-gcloud compute instances create openrlhf-head \
-    --machine-type=a2-ultragpu-2g \
-    --maintenance-policy=TERMINATE \
+# Create the head node VM using H100 GPUs (Preemptible/Spot)
+gcloud compute instances create-with-container openrlhf-head \
+    --machine-type=a3-highgpu-8g \
+    --maintenance-policy=TERMINATE --provisioning-model=SPOT \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --accelerator=type=nvidia-h100-80gb,count=8 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
 
-# Create the worker node VM
-gcloud compute instances create openrlhf-worker1 \
-    --machine-type=a2-ultragpu-2g \
-    --maintenance-policy=TERMINATE \
+# Create the worker node VM using H100 GPUs (Preemptible/Spot)
+gcloud compute instances create-with-container openrlhf-worker1 \
+    --machine-type=a3-highgpu-8g \
+    --maintenance-policy=TERMINATE --provisioning-model=SPOT \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=8 \
+    --accelerator=type=nvidia-h100-80gb,count=8 \
     --container-image=gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest \
     --scopes=cloud-platform \
     --metadata=GCS_BUCKET=gs://[YOUR-BUCKET],WANDB_API_KEY=your-wandb-api-key-here
