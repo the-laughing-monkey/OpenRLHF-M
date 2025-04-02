@@ -8,9 +8,10 @@
 #
 # Configure the following parameters as needed:
 GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
-DATASET_PATH="${DATASET_PATH:-${GCS_BUCKET}/datasets/VerMulti/mathv60k_message.jsonl}"
+# Use the mounted path after gcsfuse setup
+DATASET_PATH="${DATASET_PATH:-/app/datasets/VerMulti/mathv60k_message.jsonl}"
 PRETRAIN_MODEL_PATH="${PRETRAIN_MODEL_PATH:-Qwen/Qwen2.5-VL-3B-Instruct}"
-SAVE_PATH="${SAVE_PATH:-${GCS_BUCKET}/checkpoints}"
+SAVE_PATH="${SAVE_PATH:-/mnt/gcs-cache/checkpoints}" # Save checkpoints directly to mounted GCS path
 MODEL_NAME="${MODEL_NAME:-qwen2.5-vl-3b-ins-mathvista-grpo}"
 EXPECTED_WORKERS="${EXPECTED_WORKERS:-1}"
 
@@ -44,9 +45,14 @@ if [ -z "${GCP_WORKER}" ]; then
     echo "=========================================================="
     echo "Starting as HEAD NODE"
     echo "=========================================================="
-    ray stop || true
-    ray start --head --node-ip-address=0.0.0.0 --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --num-gpus=2
-    echo "Ray head started. Dashboard available at http://localhost:${DASHBOARD_PORT}"
+    # Check if Ray is already running
+    if ! ray status > /dev/null 2>&1; then
+        echo "Starting Ray head node..."
+        ray start --head --node-ip-address=0.0.0.0 --port=${RAY_PORT} --dashboard-port=${DASHBOARD_PORT} --num-gpus=2
+        echo "Ray head started. Dashboard available at http://localhost:${DASHBOARD_PORT}"
+    else
+        echo "Ray is already running."
+    fi
 
     # Start the remote reward model server
     echo "Starting remote reward model server..."
