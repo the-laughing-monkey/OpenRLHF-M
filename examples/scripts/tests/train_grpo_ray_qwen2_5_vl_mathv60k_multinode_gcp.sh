@@ -131,7 +131,7 @@ if [ -z "${GCP_WORKER}" ]; then
 
     echo "Submitting training job..."
     # Use specific head node IP for job submission address
-    ray job submit --address="http://${HEAD_IP}:${DASHBOARD_PORT}" \
+    ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
       --runtime-env-json='{"working_dir": "$(pwd)"}' \
       -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
