@@ -26,10 +26,14 @@ In this setup, we'll use:
 Before proceeding, ensure your local environment is properly set up:
 
 1. Update the Google Cloud CLI:
+```bash
    gcloud components update
+```
 
 2. Authenticate with Google Cloud:
+```bash
    gcloud auth application-default login
+```
 
 3. Select or create a Google Cloud project:
    - List projects: gcloud projects list
@@ -43,7 +47,9 @@ Before proceeding, ensure your local environment is properly set up:
        b. Select your project and choose to link or set up a billing account. For more details, see https://cloud.google.com/billing/docs/how-to/modify-project.
 
 5. Now weill install the various services we need for running OpenRLHF-M on GCP:
+```bash
    gcloud services enable aiplatform.googleapis.com storage.googleapis.com containerregistry.googleapis.com compute.googleapis.com
+```
 
 
 ## Setup Process
