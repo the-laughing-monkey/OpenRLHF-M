@@ -32,7 +32,7 @@ mkdir -p /mnt/gcs-cache/datasets
 mkdir -p /app/datasets
 
 # Create symlink for datasets
-ln -sf /mnt/gcs-cache/datasets /app/datasets/VerMulti
+ln -sf /mnt/gcs-cache/datasets/VerMulti /app/datasets/VerMulti
 
 # Ensure the model checkpoint directory exists
 mkdir -p /mnt/gcs-cache/checkpoints
