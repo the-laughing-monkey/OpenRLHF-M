@@ -22,6 +22,9 @@ RAY_PORT=6379
 DASHBOARD_PORT=8265
 REWARD_MODEL_PORT=5000
 
+# Calculate GPU parameters based on detected worker count
+TOTAL_GPUS_PER_NODE=2
+
 # Check WandB API key
 if [ -z "${WANDB_API_KEY}" ]; then
   echo "[INFO] WANDB_API_KEY not set. WandB logging will be disabled."
@@ -86,7 +89,6 @@ if [ -z "${GCP_WORKER}" ]; then
     
     # Calculate GPU parameters based on detected worker count
     TOTAL_NODES=$((WORKER_COUNT + 1)) # Including head node
-    TOTAL_GPUS_PER_NODE=8
     TOTAL_GPUS=$((TOTAL_GPUS_PER_NODE * TOTAL_NODES))
 
     # Total actor GPUs available (actor_num_nodes * actor_num_gpus_per_node) equals TOTAL_GPUS
