@@ -153,7 +153,7 @@ if [ -z "${GCP_WORKER}" ]; then
     echo "Submitting training job..."
     # Use loopback address as recommended by Ray startup message
     ray job submit --address="http://127.0.0.1:${DASHBOARD_PORT}" \
-      --runtime-env-json='{"working_dir": "$(pwd)"}' \
+      --runtime-env-json="{\"working_dir\": \"$(pwd)\"}" \
       -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
          --ref_num_gpus_per_node ${TOTAL_GPUS} \
