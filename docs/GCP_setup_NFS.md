@@ -77,6 +77,25 @@ gcloud compute networks create ${NETWORK_NAME} --project=${PROJECT_ID} --subnet-
 # Create a Subnet within the VPC
 gcloud compute networks subnets create ${SUBNET_NAME} --project=${PROJECT_ID} --network=${NETWORK_NAME} --region=${REGION} --range=10.0.0.0/24
 
+# Create Firewall Rules for the VPC
+# Allow internal traffic within the subnet (for Ray, NFS, etc.)
+gcloud compute firewall-rules create ${NETWORK_NAME}-allow-internal \
+    --project=${PROJECT_ID} \
+    --network=projects/${PROJECT_ID}/global/networks/${NETWORK_NAME} \
+    --direction=INGRESS \
+    --priority=1000 \
+    --allow=tcp,udp,icmp \
+    --source-ranges=10.0.0.0/24 # Adjust if your subnet range is different
+
+# Allow SSH (tcp:22) and ICMP (ping) from anywhere (restrict source range in production)
+gcloud compute firewall-rules create ${NETWORK_NAME}-allow-ssh-icmp \
+    --project=${PROJECT_ID} \
+    --network=projects/${PROJECT_ID}/global/networks/${NETWORK_NAME} \
+    --direction=INGRESS \
+    --priority=1000 \
+    --allow=tcp:22,icmp \
+    --source-ranges=0.0.0.0/0 # <-- IMPORTANT: Restrict this IP range in production environments!
+
 # Create a Filestore instance (Basic HDD tier, adjust tier and capacity as needed)
 # Note: Filestore IP range must not overlap with the subnet range used for VMs.
 # Filestore uses a /29 range internally. Let's reserve 10.1.0.0/24 for it.
@@ -85,7 +104,7 @@ gcloud filestore instances create ${FILESTORE_NAME} \
     --zone=${ZONE} \
     --tier=BASIC_HDD \
     --file-share=name="${FILE_SHARE_NAME}",capacity=1TB \
-    --network=name="${NETWORK_NAME}",reserved-ip-range="10.1.0.0/24"
+    --network=name="${NETWORK_NAME}",reserved-ip-range="10.1.0.0/29"
 
 # Get the Filestore instance IP address (Needed for mounting)
 # Wait a few minutes for the instance to be created before running this
@@ -93,10 +112,6 @@ FILESTORE_IP=$(gcloud filestore instances describe ${FILESTORE_NAME} --zone=${ZO
 echo "Filestore IP Address: ${FILESTORE_IP}"
 # Store this IP address, you'll need it later. You can set it as an environment variable:
 export FILESTORE_IP=${FILESTORE_IP}
-
-# (Optional) Create a GCS Bucket for staging data before moving to Filestore or for backups
-export BUCKET_NAME=[YOUR-BUCKET-NAME] # Optional: Replace with your bucket name
-# gsutil mb -p ${PROJECT_ID} -l ${REGION} gs://${BUCKET_NAME}
 ```
 
 ### 2. Build a Custom Docker Container
@@ -201,8 +216,10 @@ gcloud compute ssh data-prep-vm --zone=${ZONE}
 sudo apt-get update
 sudo apt-get install -y nfs-common python3-pip git wget curl
 
-# Get the Filestore IP (replace if not set as env var)
-# export FILESTORE_IP=[YOUR_FILESTORE_IP_ADDRESS] # Make sure this is set
+# Set the filestore IP and mount point that you used in step 1
+export FILESTORE_IP=[YOUR_FILESTORE_IP_ADDRESS] # Make sure this is set
+export NFS_MOUNT_POINT=/mnt/nfs # Choose a mount point
+export FILE_SHARE_NAME=vol1 # Default share name for basic tier
 
 # Create mount point directory
 sudo mkdir -p ${NFS_MOUNT_POINT}
@@ -259,6 +276,9 @@ print('Download complete!')
 # Define target dataset directory on NFS
 export MATHV60K_TARGET_DIR=${NFS_DATASET_PATH}/VerMulti/MathV60K
 mkdir -p ${MATHV60K_TARGET_DIR}
+
+# Clone OpenRLHF-M repository
+git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git /tmp/OpenRLHF-M
 
 # Download and prepare the MathV60K dataset directly to NFS
 # Adjust path to the download script as needed
