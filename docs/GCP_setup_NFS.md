@@ -310,9 +310,10 @@ Create head and worker nodes in the same VPC network as the Filestore instance. 
 # Choose the desired PyTorch image family
 export IMAGE_FAMILY="pytorch-latest-gpu"
 export DL_PROJECT="deeplearning-platform-release"
+export WANDB_API_KEY={YOUR_WANDB_API_KEY}
 
 # Define variables (ensure these are set from step 1)
-# export PROJECT_ID=[YOUR-PROJECT-ID]
+# export PROJECT_ID=[YOUR-PROJECT-I
 # export ZONE=us-central1-a
 # export NETWORK_NAME=openrlhf-vpc
 # export SUBNET_NAME=openrlhf-subnet
@@ -324,31 +325,31 @@ export DL_PROJECT="deeplearning-platform-release"
 gcloud compute instances create openrlhf-head \
     --project=${PROJECT_ID} \
     --zone=${ZONE} \
-    --machine-type=a2-ultragpu-2g \
+    --machine-type=a3-highgpu-2g \
     --network=${NETWORK_NAME} \
     --subnet=${SUBNET_NAME} \
     --maintenance-policy=TERMINATE \
     --image-family="${IMAGE_FAMILY}" \
     --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --accelerator=type=nvidia-h100-80gb,count=2 \
     --scopes=cloud-platform \
-    --metadata=wandb-api-key=[YOUR_WANDB_API_KEY],filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
+    --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 
 # Create the worker node VM
 gcloud compute instances create openrlhf-worker1 \
     --project=${PROJECT_ID} \
     --zone=${ZONE} \
-    --machine-type=a2-ultragpu-2g \
+    --machine-type=a3-highgpu-2g \
     --network=${NETWORK_NAME} \
     --subnet=${SUBNET_NAME} \
     --maintenance-policy=TERMINATE \
     --image-family="${IMAGE_FAMILY}" \
     --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --accelerator=type=nvidia-h100-80gb,count=2 \
     --scopes=cloud-platform \
-    --metadata=wandb-api-key=[YOUR_WANDB_API_KEY],filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
+    --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 ```
 *Note: We pass Filestore info via metadata for easy access within the VM.*
 
