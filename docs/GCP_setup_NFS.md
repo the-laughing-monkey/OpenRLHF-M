@@ -162,7 +162,7 @@ CMD ["/bin/bash"]
 EOF
 
 # Build the Docker image for the amd64 architecture
-docker buildx build --platform linux/amd64 -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest .
+docker buildx build --platform linux/amd64 -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-m-nfs:latest .
 
 # Initialize Docker Container Registry: Configure docker to use gcloud as a credential helper
 # This step is required to push your image to GCP Container Registry
@@ -172,7 +172,7 @@ docker buildx build --platform linux/amd64 -t gcr.io/[YOUR-PROJECT-ID]/openrlhf-
 gcloud auth configure-docker
 
 # Push the Docker image to GCP Container Registry
-docker push gcr.io/[YOUR-PROJECT-ID]/openrlhf-m:latest
+docker push gcr.io/[YOUR-PROJECT-ID]/openrlhf-m-nfs:latest
 ```
 
 ### 3. Prepare Models and Datasets on Filestore
@@ -375,7 +375,7 @@ df -h | grep ${NFS_MOUNT_POINT}
 gcloud auth configure-docker
 
 # 4. Pull your custom container image
-sudo docker pull gcr.io/${PROJECT_ID}/openrlhf-m:latest
+sudo docker pull gcr.io/${PROJECT_ID}/openrlhf-m-nfs:latest
 
 # 5. Retrieve W&B API key from metadata
 export WANDB_API_KEY=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/wandb-api-key)
@@ -394,7 +394,7 @@ sudo docker run -d --name openrlhf-$(hostname)-container \
     --env WANDB_API_KEY="${WANDB_API_KEY}" \
     --env HF_HOME="${NFS_MOUNT_POINT}/model-cache/huggingface" `# Point HF cache to NFS` \
     --env NFS_MOUNT_POINT="${NFS_MOUNT_POINT}" `# Pass mount point info` \
-    gcr.io/${PROJECT_ID}/openrlhf-m:latest sleep infinity
+    gcr.io/${PROJECT_ID}/openrlhf-m-nfs:latest sleep infinity
 
 # 7. Login to the container to check setup (optional)
 # sudo docker exec -it openrlhf-$(hostname)-container bash
