@@ -321,22 +321,60 @@ export WANDB_API_KEY={YOUR_WANDB_API_KEY}
 # export FILE_SHARE_NAME=vol1
 # export NFS_MOUNT_POINT=/mnt/nfs
 
-# Create the head node VM
+# --- Option A: Create VMs with A100 GPUs (a2-ultragpu-2g) --- 
+# Use this if a2-ultragpu-2g is available in your selected ZONE and you have A100 quota
+
+# Create the head node VM with A100
 gcloud compute instances create openrlhf-head \
     --project=${PROJECT_ID} \
     --zone=${ZONE} \
-    --machine-type=a3-highgpu-2g \
+    --machine-type=a2-ultragpu-2g \
     --network=${NETWORK_NAME} \
     --subnet=${SUBNET_NAME} \
     --maintenance-policy=TERMINATE \
     --image-family="${IMAGE_FAMILY}" \
     --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-h100-80gb,count=2 \
+    --accelerator=type=nvidia-a100-80gb,count=2 \
     --scopes=cloud-platform \
     --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 
-# Create the worker node VM
+# Create the worker node VM with A100
+gcloud compute instances create openrlhf-worker1 \
+    --project=${PROJECT_ID} \
+    --zone=${ZONE} \
+    --machine-type=a2-ultragpu-2g \
+    --network=${NETWORK_NAME} \
+    --subnet=${SUBNET_NAME} \
+    --maintenance-policy=TERMINATE \
+    --image-family="${IMAGE_FAMILY}" \
+    --image-project="${DL_PROJECT}" \
+    --boot-disk-size=200GB \
+    --accelerator=type=nvidia-a100-80gb,count=2 \
+    --scopes=cloud-platform \
+    --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
+
+# --- Option B: Create VMs with H100 GPUs (a3-highgpu-2g) --- 
+# Use this as an alternative if A100s (a2-ultragpu-2g) are unavailable but a3-highgpu-2g exists 
+# in your selected ZONE and you have H100 quota.
+# Note: Ensure ${ZONE} is set correctly for this option (e.g., us-central1-a)
+
+# # Create the head node VM with H100 (Uncomment to use)
+gcloud compute instances create openrlhf-head \
+     --project=${PROJECT_ID} \
+     --zone=${ZONE} \
+     --machine-type=a3-highgpu-2g \
+     --network=${NETWORK_NAME} \
+     --subnet=${SUBNET_NAME} \
+     --maintenance-policy=TERMINATE \
+     --image-family="${IMAGE_FAMILY}" \
+     --image-project="${DL_PROJECT}" \
+     --boot-disk-size=200GB \
+     --accelerator=type=nvidia-h100-80gb,count=2 \
+     --scopes=cloud-platform \
+     --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
+
+# # Create the worker node VM with H100 (Uncomment to use)
 gcloud compute instances create openrlhf-worker1 \
     --project=${PROJECT_ID} \
     --zone=${ZONE} \
