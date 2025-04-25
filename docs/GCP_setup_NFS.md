@@ -359,7 +359,7 @@ gcloud compute instances create openrlhf-worker1 \
 # in your selected ZONE and you have H100 quota.
 # Note: Ensure ${ZONE} is set correctly for this option (e.g., us-central1-a)
 
-# # Create the head node VM with H100 (Uncomment to use)
+# # Create the head node VM with H100 
 gcloud compute instances create openrlhf-head \
      --project=${PROJECT_ID} \
      --zone=${ZONE} \
@@ -374,7 +374,7 @@ gcloud compute instances create openrlhf-head \
      --scopes=cloud-platform \
      --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 
-# # Create the worker node VM with H100 (Uncomment to use)
+# # Create the worker node VM with H100 
 gcloud compute instances create openrlhf-worker1 \
     --project=${PROJECT_ID} \
     --zone=${ZONE} \
@@ -561,32 +561,32 @@ echo "Deleting worker node VM (openrlhf-worker1)..."
 gcloud compute instances delete openrlhf-worker1 --zone=${ZONE} --project=${PROJECT_ID} --quiet
 
 # --- Optional: Delete the Filestore Instance --- 
-# WARNING: This will permanently delete the NFS share and all data stored on it (datasets, models, checkpoints).
-# Only run this if you are certain you no longer need the data on the Filestore instance.
+WARNING: This will permanently delete the NFS share and all data stored on it (datasets, models, checkpoints).
+Only run this if you are certain you no longer need the data on the Filestore instance.
 
-# export FILESTORE_NAME=openrlhf-nfs # Ensure Filestore name is set
+export FILESTORE_NAME=openrlhf-nfs # Ensure Filestore name is set
 
-# echo "WARNING: About to delete Filestore instance ${FILESTORE_NAME} and ALL its data!"
-# echo "Press Ctrl+C to cancel, or Enter to continue..."
-# read -p ""
-# gcloud filestore instances delete ${FILESTORE_NAME} --zone=${ZONE} --project=${PROJECT_ID} --quiet
-# echo "Filestore instance ${FILESTORE_NAME} deleted."
+echo "WARNING: About to delete Filestore instance ${FILESTORE_NAME} and ALL its data!"
+echo "Press Ctrl+C to cancel, or Enter to continue..."
+read -p ""
+gcloud filestore instances delete ${FILESTORE_NAME} --zone=${ZONE} --project=${PROJECT_ID} --quiet
+echo "Filestore instance ${FILESTORE_NAME} deleted."
 
-# --- Optional: Delete VPC Network Resources ---
-# Only do this if the VPC, subnet, and firewall rules are no longer needed for other purposes.
+--- Optional: Delete VPC Network Resources ---
+Only do this if the VPC, subnet, and firewall rules are no longer needed for other purposes.
 
-# export NETWORK_NAME=openrlhf-vpc # Ensure network name is set
-# export SUBNET_NAME=openrlhf-subnet
-# export REGION=us-central1 # Ensure region is set
+export NETWORK_NAME=openrlhf-vpc # Ensure network name is set
+export SUBNET_NAME=openrlhf-subnet
+export REGION=us-central1 # Ensure region is set
 
-# echo "Deleting firewall rules..."
-# gcloud compute firewall-rules delete ${NETWORK_NAME}-allow-internal --project=${PROJECT_ID} --quiet
-# gcloud compute firewall-rules delete ${NETWORK_NAME}-allow-ssh-icmp --project=${PROJECT_ID} --quiet
-# echo "Deleting subnet..."
-# gcloud compute networks subnets delete ${SUBNET_NAME} --region=${REGION} --project=${PROJECT_ID} --quiet
-# echo "Deleting VPC network..."
-# gcloud compute networks delete ${NETWORK_NAME} --project=${PROJECT_ID} --quiet
-# echo "VPC network resources deleted."
+echo "Deleting firewall rules..."
+gcloud compute firewall-rules delete ${NETWORK_NAME}-allow-internal --project=${PROJECT_ID} --quiet
+gcloud compute firewall-rules delete ${NETWORK_NAME}-allow-ssh-icmp --project=${PROJECT_ID} --quiet
+echo "Deleting subnet..."
+gcloud compute networks subnets delete ${SUBNET_NAME} --region=${REGION} --project=${PROJECT_ID} --quiet
+echo "Deleting VPC network..."
+gcloud compute networks delete ${NETWORK_NAME} --project=${PROJECT_ID} --quiet
+echo "VPC network resources deleted."
 ```
 
 ## Deployment Options

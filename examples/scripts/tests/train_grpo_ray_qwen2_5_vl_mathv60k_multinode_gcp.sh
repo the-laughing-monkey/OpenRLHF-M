@@ -1,18 +1,20 @@
 #!/bin/bash
 #=============================================================================
 # GCP Vertex AI Simplified Multinode Training Script for OpenRLHF-M MathV60K
+# - NFS Version -
 #=============================================================================
 # Usage:
 #   On the head node: simply run the script (without GCP_WORKER set).
 #   On worker nodes: set GCP_WORKER=1 and GCP_HEAD_IP to the head node's IP address.
 #
+# Ensure environment variable NFS_MOUNT_POINT is set inside the container (e.g., /mnt/nfs)
+#
 # Configure the following parameters as needed:
-GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
-# Use the mounted path after gcsfuse setup
-DATASET_PATH="${DATASET_PATH:-/app/datasets/VerMulti/mathv60k_message.jsonl}"
+NFS_MOUNT_POINT="${NFS_MOUNT_POINT:-/mnt/nfs}" # Default if not set in env
+DATASET_PATH="${DATASET_PATH:-${NFS_MOUNT_POINT}/datasets/VerMulti/MathV60K/mathv60k_message.jsonl}" # Path on NFS
 PRETRAIN_MODEL_PATH="${PRETRAIN_MODEL_PATH:-Qwen/Qwen2.5-VL-3B-Instruct}"
-SAVE_PATH="${SAVE_PATH:-/mnt/gcs-cache/checkpoints}" # Save checkpoints directly to mounted GCS path
-MODEL_NAME="${MODEL_NAME:-qwen2.5-vl-3b-ins-mathvista-grpo}"
+SAVE_PATH="${SAVE_PATH:-${NFS_MOUNT_POINT}/checkpoints}" # Save checkpoints directly to NFS path
+MODEL_NAME="${MODEL_NAME:-qwen2.5-vl-3b-ins-mathvista-grpo-nfs}" # Updated model name suffix
 EXPECTED_WORKERS="${EXPECTED_WORKERS:-1}"
 
 # NCCL configuration for GCP networking
