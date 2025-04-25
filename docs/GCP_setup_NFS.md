@@ -543,6 +543,52 @@ bash ./train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 # exit
 ```
 
+## 7. Cleaning Up Resources
+
+Once you have finished your training and saved any necessary results from the NFS share, you should delete the compute resources to avoid incurring further charges.
+
+```bash
+# Ensure your ZONE and PROJECT_ID variables are still set correctly
+# export ZONE=us-central1-a # Or your chosen zone
+# export PROJECT_ID=[YOUR-PROJECT-ID]
+
+# Delete the head node VM
+echo "Deleting head node VM (openrlhf-head)..."
+gcloud compute instances delete openrlhf-head --zone=${ZONE} --project=${PROJECT_ID} --quiet
+
+# Delete the worker node VM
+echo "Deleting worker node VM (openrlhf-worker1)..."
+gcloud compute instances delete openrlhf-worker1 --zone=${ZONE} --project=${PROJECT_ID} --quiet
+
+# --- Optional: Delete the Filestore Instance --- 
+# WARNING: This will permanently delete the NFS share and all data stored on it (datasets, models, checkpoints).
+# Only run this if you are certain you no longer need the data on the Filestore instance.
+
+# export FILESTORE_NAME=openrlhf-nfs # Ensure Filestore name is set
+
+# echo "WARNING: About to delete Filestore instance ${FILESTORE_NAME} and ALL its data!"
+# echo "Press Ctrl+C to cancel, or Enter to continue..."
+# read -p ""
+# gcloud filestore instances delete ${FILESTORE_NAME} --zone=${ZONE} --project=${PROJECT_ID} --quiet
+# echo "Filestore instance ${FILESTORE_NAME} deleted."
+
+# --- Optional: Delete VPC Network Resources ---
+# Only do this if the VPC, subnet, and firewall rules are no longer needed for other purposes.
+
+# export NETWORK_NAME=openrlhf-vpc # Ensure network name is set
+# export SUBNET_NAME=openrlhf-subnet
+# export REGION=us-central1 # Ensure region is set
+
+# echo "Deleting firewall rules..."
+# gcloud compute firewall-rules delete ${NETWORK_NAME}-allow-internal --project=${PROJECT_ID} --quiet
+# gcloud compute firewall-rules delete ${NETWORK_NAME}-allow-ssh-icmp --project=${PROJECT_ID} --quiet
+# echo "Deleting subnet..."
+# gcloud compute networks subnets delete ${SUBNET_NAME} --region=${REGION} --project=${PROJECT_ID} --quiet
+# echo "Deleting VPC network..."
+# gcloud compute networks delete ${NETWORK_NAME} --project=${PROJECT_ID} --quiet
+# echo "VPC network resources deleted."
+```
+
 ## Deployment Options
 
 This guide now describes three different deployment options that you can choose from, depending on your management and scaling preferences, adapted for NFS.
