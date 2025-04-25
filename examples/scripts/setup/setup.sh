@@ -8,7 +8,7 @@
 # Set Working Root
 #############################
 
-WORKING_DIR="/data"
+WORKING_DIR="$(pwd)" # Use current working directory
 
 #############################
 # 1. Install Core Python Packages (Section 4)

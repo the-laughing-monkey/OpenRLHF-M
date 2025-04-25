@@ -69,16 +69,39 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
    apt update && apt upgrade -y && apt install -y python3-pip python3-venv python3-dev build-essential git curl vim lsof net-tools rsync libopenmpi-dev build-essential dkms dnsutils dnsutils iputils-ping
 ```
 
+2. Create subdirectories for nodes
+
+mkdir /data/head_node
+mkdir /data/worker_node_1
+
+
 2. Create a virtual environment in your data directory:
+
+On your head node:
 ```bash
-   cd /data
+   cd /data/head_node
+   python3 -m venv openrlhf-env
+   source openrlhf-env/bin/activate
+```
+
+On your worker node:
+```bash
+   cd /data/worker_node_1
    python3 -m venv openrlhf-env
    source openrlhf-env/bin/activate
 ```
 
 ### 5. Clone the repository OpenRLHF-M repository and install it
+
+On your head node:
 ```bash
-  cd /data
+  cd /data/head_node
+  git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
+```
+
+On your worker node:
+```bash
+  cd /data/worker_node_1
   git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 ```
 
@@ -89,11 +112,12 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 
 
 ### 7. Run setup script to install everything else
+
+On both nodes:
 ```bash
-  cd /data/OpenRLHF-M
+  cd ./OpenRLHF-M
   bash ./examples/scripts/setup/setup.sh
 ```
-
 
 ### 8. (Optional) Set Your WandB API Key
 
