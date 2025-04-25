@@ -312,17 +312,8 @@ export IMAGE_FAMILY="pytorch-latest-gpu"
 export DL_PROJECT="deeplearning-platform-release"
 export WANDB_API_KEY={YOUR_WANDB_API_KEY}
 
-# Define variables (ensure these are set from step 1)
-# export PROJECT_ID=[YOUR-PROJECT-I
-# export ZONE=us-central1-a
-# export NETWORK_NAME=openrlhf-vpc
-# export SUBNET_NAME=openrlhf-subnet
-# export FILESTORE_IP=[YOUR_FILESTORE_IP_ADDRESS]
-# export FILE_SHARE_NAME=vol1
-# export NFS_MOUNT_POINT=/mnt/nfs
-
-# --- Option A: Create VMs with A100 GPUs (a2-ultragpu-2g) --- 
-# Use this if a2-ultragpu-2g is available in your selected ZONE and you have A100 quota
+--- Option A: Create VMs with A100 GPUs (a2-ultragpu-2g) --- 
+Use this if a2-ultragpu-2g is available in your selected ZONE and you have A100 quota
 
 # Create the head node VM with A100
 gcloud compute instances create openrlhf-head \
@@ -335,7 +326,6 @@ gcloud compute instances create openrlhf-head \
     --image-family="${IMAGE_FAMILY}" \
     --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
     --scopes=cloud-platform \
     --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 
@@ -350,31 +340,29 @@ gcloud compute instances create openrlhf-worker1 \
     --image-family="${IMAGE_FAMILY}" \
     --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-a100-80gb,count=2 \
     --scopes=cloud-platform \
     --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 
-# --- Option B: Create VMs with H100 GPUs (a3-highgpu-2g) --- 
-# Use this as an alternative if A100s (a2-ultragpu-2g) are unavailable but a3-highgpu-2g exists 
-# in your selected ZONE and you have H100 quota.
-# Note: Ensure ${ZONE} is set correctly for this option (e.g., us-central1-a)
+--- Option B: Create VMs with H100 GPUs (a3-highgpu-2g) --- 
+ Use this as an alternative if A100s (a2-ultragpu-2g) are unavailable but a3-highgpu-2g exists 
+ in your selected ZONE and you have H100 quota.
+ Note: Ensure ${ZONE} is set correctly for this option (e.g., us-central1-a)
 
-# # Create the head node VM with H100 
+# Create the head node VM with H100 (Uncomment to use)
 gcloud compute instances create openrlhf-head \
-     --project=${PROJECT_ID} \
-     --zone=${ZONE} \
-     --machine-type=a3-highgpu-2g \
-     --network=${NETWORK_NAME} \
-     --subnet=${SUBNET_NAME} \
-     --maintenance-policy=TERMINATE \
-     --image-family="${IMAGE_FAMILY}" \
-     --image-project="${DL_PROJECT}" \
-     --boot-disk-size=200GB \
-     --accelerator=type=nvidia-h100-80gb,count=2 \
-     --scopes=cloud-platform \
-     --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
+    --project=${PROJECT_ID} \
+    --zone=${ZONE} \
+    --machine-type=a3-highgpu-2g \
+    --network=${NETWORK_NAME} \
+    --subnet=${SUBNET_NAME} \
+    --maintenance-policy=TERMINATE \
+    --image-family="${IMAGE_FAMILY}" \
+    --image-project="${DL_PROJECT}" \
+    --boot-disk-size=200GB \
+    --scopes=cloud-platform \
+    --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 
-# # Create the worker node VM with H100 
+# Create the worker node VM with H100 (Uncomment to use)
 gcloud compute instances create openrlhf-worker1 \
     --project=${PROJECT_ID} \
     --zone=${ZONE} \
@@ -385,7 +373,6 @@ gcloud compute instances create openrlhf-worker1 \
     --image-family="${IMAGE_FAMILY}" \
     --image-project="${DL_PROJECT}" \
     --boot-disk-size=200GB \
-    --accelerator=type=nvidia-h100-80gb,count=2 \
     --scopes=cloud-platform \
     --metadata=wandb-api-key=${WANDB_API_KEY},filestore-ip=${FILESTORE_IP},file-share-name=${FILE_SHARE_NAME},nfs-mount-point=${NFS_MOUNT_POINT}
 ```
@@ -513,34 +500,12 @@ sudo docker exec -it openrlhf-head-container bash
 # 1. Navigate to the scripts directory
 cd /app/OpenRLHF-M/examples/scripts/tests
 
-# 2. Edit the training script to use NFS paths and remove GCS variables
-# vi train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
-#
-# Make the following changes within the script:
-#   - Remove or comment out: GCS_BUCKET="${GCS_BUCKET:-gs://[YOUR_BUCKET]}"
-#   - Change DATASET_PATH to use the NFS mount point (passed via env var or use symlink)
-#     Example using symlink: DATASET_PATH="${DATASET_PATH:-/app/datasets/VerMulti/MathV60K/mathv60k_message.jsonl}"
-#     Example using direct NFS path: DATASET_PATH="${DATASET_PATH:-${NFS_MOUNT_POINT}/datasets/VerMulti/MathV60K/mathv60k_message.jsonl}"
-#   - Change SAVE_PATH to use the NFS mount point
-#     Example: SAVE_PATH="${SAVE_PATH:-${NFS_MOUNT_POINT}/checkpoints}"
-#   - Ensure PRETRAIN_MODEL_PATH points to the model name (HuggingFace cache is handled by HF_HOME env var)
-#     Example: PRETRAIN_MODEL_PATH="${PRETRAIN_MODEL_PATH:-Qwen/Qwen2.5-VL-3B-Instruct}" (No change needed here if using HF cache)
-#   - Adjust MODEL_NAME and EXPECTED_WORKERS as needed.
 
-# Example of modified variables in the script:
-# FILE: train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
-# NFS_MOUNT_POINT="${NFS_MOUNT_POINT:-/mnt/nfs}" # Get from env or default
-# DATASET_PATH="${DATASET_PATH:-${NFS_MOUNT_POINT}/datasets/VerMulti/MathV60K/mathv60k_message.jsonl}"
-# PRETRAIN_MODEL_PATH="${PRETRAIN_MODEL_PATH:-Qwen/Qwen2.5-VL-3B-Instruct}"
-# SAVE_PATH="${SAVE_PATH:-${NFS_MOUNT_POINT}/checkpoints}"
-# MODEL_NAME="${MODEL_NAME:-qwen2.5-vl-3b-ins-mathvista-grpo-nfs}"
-# EXPECTED_WORKERS="${EXPECTED_WORKERS:-1}"
-
-# 3. Execute the training script
+# 2. Execute the training script
 bash ./train_grpo_ray_qwen2_5_vl_mathv60k_multinode_gcp.sh
 
 # --- Exit container when done ---
-# exit
+exit
 ```
 
 ## 7. Cleaning Up Resources
