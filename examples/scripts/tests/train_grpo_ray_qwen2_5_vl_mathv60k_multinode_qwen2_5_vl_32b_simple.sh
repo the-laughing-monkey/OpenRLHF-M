@@ -49,7 +49,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --actor_num_gpus_per_node 8 \
          --vllm_num_engines 4 \
          --vllm_tensor_parallel_size 2 \
-         --vllm_gpu_memory_utilization 0.3 \
+         --vllm_gpu_memory_utilization 0.4 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --enable_prefix_caching \
