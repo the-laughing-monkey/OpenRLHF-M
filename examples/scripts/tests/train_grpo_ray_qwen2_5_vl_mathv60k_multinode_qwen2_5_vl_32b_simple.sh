@@ -43,15 +43,16 @@ echo "Using eth1 IP address: ${ETH1_IP}"
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
-         --ref_num_gpus_per_node 8 \
+         --ref_num_gpus_per_node 16 \
          --remote_rm_url http://${ETH1_IP}:5000/get_reward \
          --actor_num_nodes 1 \
-         --actor_num_gpus_per_node 8 \
-         --vllm_num_engines 4 \
+         --actor_num_gpus_per_node 16 \
+         --vllm_num_engines 8 \
          --vllm_tensor_parallel_size 2 \
          --vllm_gpu_memory_utilization 0.4 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
+         --colocate_all_models \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
