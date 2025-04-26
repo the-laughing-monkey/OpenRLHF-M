@@ -50,6 +50,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --colocate_all_models \
          --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 8 \
+         --vllm_gpu_memory_utilization 0.5 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --enable_prefix_caching \
