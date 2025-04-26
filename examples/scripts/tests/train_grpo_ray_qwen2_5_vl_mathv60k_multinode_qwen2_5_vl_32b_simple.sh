@@ -48,8 +48,8 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 16 \
          --colocate_all_models \
-         --vllm_num_engines 1 \
-         --vllm_tensor_parallel_size 16 \
+         --vllm_num_engines 2 \
+         --vllm_tensor_parallel_size 8 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
          --enable_prefix_caching \
