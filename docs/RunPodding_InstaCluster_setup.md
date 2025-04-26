@@ -115,9 +115,15 @@ If you wish to use Weights & Biases (wandb) for experiment tracking, set your AP
 ```
 This step is optional but recommended for more integrated experiment monitoring.
 
+
+### 9. Set the file descriptor limit to 65536 to avoid "Too many open files" error
+```bash
+ulimit -n 65536
+# Then run your ray start or training command
+```
 ---
 
-### 9. Prepare Your Cache
+### 10. Prepare Your Cache
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
@@ -135,7 +141,7 @@ This is a critical step because:
 
 ---
 
-### 10. Download and Prepare the MathV60K Dataset
+### 11. Download and Prepare the MathV60K Dataset
 
 Before running a training job, you'll need to prepare the dataset:
 
@@ -161,7 +167,7 @@ This script will:
 The script provides detailed progress information and will tell you when the dataset is ready.
 
 
-### 11. Set your NCCL environment variables to use the eth1 interface:
+### 12. Set your NCCL environment variables to use the eth1 interface:
 
 CRITICAL: RunPod only allows internode communication over eth1. So you need to set your NCCL to use the eth1 IP or NCCL will fail to update weights across nodes.
 
@@ -171,7 +177,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 ```
 
 
-### 12. Set your Ray head node to use the eth1 IP
+### 13. Set your Ray head node to use the eth1 IP
 
 CRITICAL: RunPod only allows internode communication over eth1. So you need to set your Ray head node to use the eth1 IP.
 
@@ -187,7 +193,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 
 3. Start the Ray head node bound to all available IPs on eth1:
 ```bash
-    ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
+    ray start --head --node-ip-address $ETH1_IP --port=6379 --dashboard-port=8265
 ```
 
 4. To connect a worker node to the Ray head node, run:
