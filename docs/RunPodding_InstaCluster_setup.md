@@ -192,7 +192,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 
 4. To connect a worker node to the Ray head node, run:
 ```bash
-    export e={YOUR_HEAD_NODE_IP}
+    export HEAD_NODE_IP={YOUR_HEAD_NODE_IP}
 ray start \
   --address="${HEAD_NODE_IP}:6379" \
   --temp-dir ~/.cache/ray
