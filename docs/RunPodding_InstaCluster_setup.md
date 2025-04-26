@@ -88,7 +88,6 @@ mkdir /data/worker_node_1
 ### 5. Clone the repository OpenRLHF-M repository and install it
 
 ```bash
-  cd /workspace
   git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 ```
 
