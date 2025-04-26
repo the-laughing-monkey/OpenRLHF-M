@@ -77,31 +77,18 @@ mkdir /data/worker_node_1
 
 2. Create a virtual environment in your data directory:
 
-On your head node:
-```bash
-   cd /data/head_node
-   python3 -m venv openrlhf-env
-   source openrlhf-env/bin/activate
-```
 
-On your worker node:
 ```bash
-   cd /data/worker_node_1
+   mkdir /workspace
+   cd /workspace
    python3 -m venv openrlhf-env
    source openrlhf-env/bin/activate
 ```
 
 ### 5. Clone the repository OpenRLHF-M repository and install it
 
-On your head node:
 ```bash
-  cd /data/head_node
-  git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
-```
-
-On your worker node:
-```bash
-  cd /data/worker_node_1
+  cd /workspace
   git clone https://github.com/the-laughing-monkey/OpenRLHF-M.git
 ```
 
@@ -110,6 +97,7 @@ On your worker node:
   pip install huggingface_hub
 ```
 
+# Now you can use the examples/scripts/downloaders/download_model.py or examples/scripts/downloaders/download_mathv60k.py to download models and a sample dataset in another terminal to work in parallel.
 
 ### 7. Run setup script to install everything else
 
@@ -137,13 +125,11 @@ Move model caches to your larger `/data` volume to conserve space:
     mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
     rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
     rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
-    rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
     # Verify symlinks
     ls -la /root/.cache/
 ```
 
 This is a critical step because:
-- Ray uses local cache for storing temporary objects, logs, and spilled objects when memory is full
 - Model training checkpoints can be large (multiple GB each)
 - The default container disk (50GB) will quickly fill up during training
 - Moving these to your data volume (500GB-1000GB) prevents "No space left on device" errors
@@ -160,8 +146,10 @@ Before running a training job, you'll need to prepare the dataset:
 ```
 
 2. Download and prepare the MathV60K dataset:
+
+On the head node:
 ```bash
-    cd /data/OpenRLHF-M
+    cd /workspace/OpenRLHF-M
     python3 examples/scripts/downloaders/download_mathv60k.py --root_dir /data/datasets/VerMulti
 ```
 
@@ -198,17 +186,16 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
     ray stop
 ```
 
-3. Start the Ray head node bound only to the eth1 IP:
+3. Start the Ray head node bound to all available IPs on eth1:
 ```bash
-    ray start --head --head-ip-address ${ETH1_IP} --port=6379 --dashboard-port=8265
+    ray start --head --node-ip-address 0.0.0.0 --port=6379 --dashboard-port=8265
 ```
 
 4. To connect a worker node to the Ray head node, run:
 ```bash
-    export HEAD_NODE_IP={YOUR_HEAD_NODE_IP}
+    export e={YOUR_HEAD_NODE_IP}
 ray start \
   --address="${HEAD_NODE_IP}:6379" \
-  --node-ip-address="{YOUR_LOCAL_NODE_IP}" \
   --temp-dir ~/.cache/ray
 ```
 
@@ -220,9 +207,9 @@ Now you're ready to launch a training job using the MathV60K dataset and the Qwe
 1. First, copy the script to your pod:
 
 ```bash
-    cd /data/OpenRLHF-M
+    cd /workspace/OpenRLHF-M
     mkdir -p ./scripts
-    cp examples/scripts/tests/train_grpo_ray_qwen2_5_vl_mathv60k_multinode_simple.sh ./scripts/my_train_script.sh
+    cp b ./scripts/my_train_script.sh
 ```
 
 2. Edit the script to match your pod's GPU configuration:
@@ -365,3 +352,19 @@ rm -rf /root/.cache/torch/hub/*
 # Remove older checkpoints if needed
 find /data/checkpoints -name "global_step*" | sort | head -n -2 | xargs rm -rf
 ```
+
+### Troubleshooting
+
+#### "Too many open files" error (Raylet or other Ray process)
+
+This error occurs when a Ray process (like the raylet) exceeds the operating system's limit on the number of open file descriptors. Ray uses file descriptors for various resources, including network sockets for internal communication (gRPC). With a large number of tasks or actors, Ray can open many connections, hitting the default limit.
+
+To resolve this, increase the file descriptor limit (`ulimit -n`) for the user running the Ray processes *before* starting Ray. A common value is 65536.
+
+```bash
+ulimit -n 65536
+# Then run your ray start or training command
+ray start --head ... # or ray start --address=...
+```
+
+You should apply this command in the terminal session *before* executing the Ray start command on both head and worker nodes.

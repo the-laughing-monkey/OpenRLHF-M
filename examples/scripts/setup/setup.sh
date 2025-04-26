@@ -44,7 +44,7 @@ if [[ "$CUDA_VERSION" == 12* ]]; then
     echo "CUDA 12 detected. Using simple installation for torch."
     TORCH_INSTALL="pip install torch torchvision torchaudio"
 else
-    if [ -d "/usr/local/cuda-12.7" ]; then
+    if [ -d "l" ]; then
         echo "CUDA 12 not detected via nvcc, but /usr/local/cuda-12.7 exists. Using complicated installation for torch with CUDA 12.1 wheels."
         TORCH_INSTALL="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
     else
