@@ -43,10 +43,10 @@ echo "Using eth1 IP address: ${ETH1_IP}"
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
-         --ref_num_gpus_per_node 8 \
+         --ref_num_gpus_per_node 4 \
          --remote_rm_url http://${ETH1_IP}:5000/get_reward \
          --actor_num_nodes 1 \
-         --actor_num_gpus_per_node 8 \
+         --actor_num_gpus_per_node 4 \
          --vllm_num_engines 2 \
          --vllm_tensor_parallel_size 4 \
          --vllm_enable_sleep \
