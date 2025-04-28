@@ -55,9 +55,9 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
          --micro_train_batch_size 1 \
-         --train_batch_size 128 \
+         --train_batch_size 126 \
          --micro_rollout_batch_size 1 \
-         --rollout_batch_size 128 \
+         --rollout_batch_size 126 \
          --temperature 1.0 \
          --n_samples_per_prompt 4 \
          --max_epochs 1 \
