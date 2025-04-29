@@ -51,20 +51,21 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --vllm_tensor_parallel_size 4 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
+         --vllm_gpu_memory_utilization 0.6 \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
          --micro_train_batch_size 1 \
          --train_batch_size 128 \
-         --micro_rollout_batch_size 1 \
+         --micro_rollout_batch_size 2 \
          --rollout_batch_size 128 \
          --temperature 1.0 \
          --n_samples_per_prompt 4 \
          --max_epochs 1 \
          --num_episodes 2 \
-         --prompt_max_len 4096 \
+         --prompt_max_len 2048 \
          --max_samples 1000 \
-         --generate_max_len 8000 \
+         --generate_max_len 2048 \
          --advantage_estimator group_norm \
          --use_kl_loss \
          --kl_estimator k3 \
