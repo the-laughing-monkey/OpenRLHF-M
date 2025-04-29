@@ -77,6 +77,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --input_key message \
          --normalize_reward \
          --zero_stage 3 \
+         --deepspeed_enable_sleep \
          --flash_attn \
          --lambd 1 \
          --gamma 1 \
