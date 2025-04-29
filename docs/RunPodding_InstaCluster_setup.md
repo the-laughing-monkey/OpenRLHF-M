@@ -178,7 +178,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 
 ```bash
     export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
-    echo "Using ETH1 IP: ${ETH1_IP}"
+    e
 ```
 
 2. Stop any running Ray instances (if any):
