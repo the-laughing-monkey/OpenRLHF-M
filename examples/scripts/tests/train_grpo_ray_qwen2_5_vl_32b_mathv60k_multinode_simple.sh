@@ -63,9 +63,9 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --n_samples_per_prompt 4 \
          --max_epochs 1 \
          --num_episodes 2 \
-         --prompt_max_len 4096 \
+         --prompt_max_len 2048 \
          --max_samples 1000 \
-         --generate_max_len 8000 \
+         --generate_max_len 2048 \
          --advantage_estimator group_norm \
          --use_kl_loss \
          --kl_estimator k3 \
