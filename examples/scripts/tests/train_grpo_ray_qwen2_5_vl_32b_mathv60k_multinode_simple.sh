@@ -82,6 +82,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --lambd 1 \
          --gamma 1 \
          --gradient_checkpointing \
+         --adam_offload \
          --save_steps 5 \
          --ckpt_path ${SAVE_PATH}/${MODEL_NAME}/ckpt \
          --save_hf_ckpt \
