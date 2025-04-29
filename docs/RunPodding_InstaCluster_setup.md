@@ -125,6 +125,7 @@ Move model caches to your larger `/data` volume to conserve space:
     mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
     rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
     rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
+    rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
     # Verify symlinks
     ls -la /root/.cache/
 ```
@@ -188,7 +189,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 
 3. Start the Ray head node bound to all available IPs on eth1:
 ```bash
-    ray start --head --node-ip-address $ETH1_IP --port=6379 --dashboard-port=8265
+    ray start --head --node-ip-address $ETH1_IP --port=6379 --dashboard-port=8265   --temp-dir ~/.cache/ray
 ```
 
 4. To connect a worker node to the Ray head node, run:
