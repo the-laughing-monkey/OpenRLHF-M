@@ -64,7 +64,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --n_samples_per_prompt 4 \
          --max_epochs 1 \
          --num_episodes 2 \
-         --prompt_max_len 1024 \
+         --prompt_max_len 4096 \
          --max_samples 1000 \
          --packing_samples \
          --generate_max_len 1024 \
