@@ -79,6 +79,8 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --zero_stage 3 \
          --deepspeed_enable_sleep \
          --flash_attn \
+         --ring_attn_size 2 \
+         --ring_head_stride 2 \
          --lambd 1 \
          --gamma 1 \
          --gradient_checkpointing \
