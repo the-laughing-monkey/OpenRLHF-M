@@ -121,14 +121,11 @@ ulimit -n 65536
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
-    mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray/head /data/cache-ray/worker1 /data/cache-ray/worker2
+    mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
     rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
     rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
-    # On the head node
-    rm -rf /root/.cache/ray && ln -s /data/cache-ray/head /root/.cache/ray
-    # On the worker nodes
-    rm -rf /root/.cache/ray && ln -s /data/cache-ray/worker1 /root/.cache/ray
-    rm -rf /root/.cache/ray && ln -s /data/cache-ray/worker2 /root/.cache/ray
+    # DO NOT DO THIS PART ON A NETWORK DISK
+    rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
     # Verify symlinks
     ls -la /root/.cache/
 ```
