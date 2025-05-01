@@ -51,7 +51,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --vllm_tensor_parallel_size 8 \
          --vllm_enable_sleep \
          --vllm_sync_backend nccl \
-         --colocate_actor_ref \
+         --colocate_all_models \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
