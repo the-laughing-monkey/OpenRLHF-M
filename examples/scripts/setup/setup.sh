@@ -15,7 +15,7 @@ WORKING_DIR="$(pwd)" # Use current working directory
 #############################
 
 # Define the core required python packages
-PACKAGES="pip wheel packaging setuptools huggingface_hub"
+PACKAGES="pip wheel packaging setuptools huggingface_hub ring_flash_attn"
 
 echo "Upgrading pip"
 pip install --upgrade pip

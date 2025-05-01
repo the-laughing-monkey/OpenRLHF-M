@@ -42,7 +42,7 @@ Choose the number of nodes you want to deploy.
 RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 
 5. Click **Edit Template** to adjust:
-   - Container disk size (50GB is a good start).
+   - Container disk size (1000GB is a good start). # Ray cache is large
    - Attach your volume by mounting it to `/data`.
    - Enable a public IP.
 
