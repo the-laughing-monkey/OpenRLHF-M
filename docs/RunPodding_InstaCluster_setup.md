@@ -124,7 +124,7 @@ Move model caches to your larger `/data` volume to conserve space:
     mkdir -p /data/cache-models/huggingface/hub /data/cache-models/modelscope/hub /data/cache-ray
     rm -rf /root/.cache/huggingface && ln -s /data/cache-models/huggingface /root/.cache/huggingface
     rm -rf /root/.cache/modelscope && ln -s /data/cache-models/modelscope /root/.cache/modelscope
-    # DO NOT DO THIS PART ON A NETWORK DISK
+    # DO NOT DO THIS PART ON A NETWORK DISK. Insread make your local /root disk LARGE. Like 2GB.
     rm -rf /root/.cache/ray && ln -s /data/cache-ray /root/.cache/ray
     # Verify symlinks
     ls -la /root/.cache/
