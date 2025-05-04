@@ -87,12 +87,12 @@ eval $TORCH_INSTALL_CMD
 
 
 #############################
-# 3. Install vLLM and OpenRLHF (Section 6)
+# 3. Install OpenRLHF and its Dependencies
 #############################
 
-# Install vLLM explicitly
-echo "Installing vLLM==0.7.3"
-pip install vllm==0.7.3
+# Install latest compatible vLLM explicitly
+echo "Installing vLLM==0.8.5.post1"
+pip install vllm==0.8.5.post1
 
 # Set repository directory in WORKING_DIR
 REPO_DIR="$WORKING_DIR/OpenRLHF-M"
