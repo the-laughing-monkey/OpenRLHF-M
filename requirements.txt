@@ -15,9 +15,9 @@ peft
 pynvml>=12.0.0
 qwen_vl_utils
 tensorboard
-torch
-torchvision
-torchmetrics
+torch>=2.7.0
+torchvision>=0.22.0
+torchaudio>=2.7.0
 tqdm
 transformers @ git+https://github.com/huggingface/transformers@2ab7bdc40333b230b642f09e8334fb8e1a92d2a4
 transformers_stream_generator

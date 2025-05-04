@@ -52,10 +52,10 @@ echo "Detected Max Compute Capability: $MAX_COMPUTE_CAPABILITY"
 # Select torch installation command based on detected hardware
 if [[ "$MAX_COMPUTE_CAPABILITY" == 10.0* ]]; then
     echo "NVIDIA B200 (Compute Capability 10.0) detected."
-    echo "Installing latest PyTorch compatible with CUDA 12.1+ for B200 support."
-    # PyTorch 2.7+ is needed for Blackwell (sm_100). Using the cu121 index url.
+    echo "Installing latest PyTorch compatible with CUDA 12.8+ for B200 support."
+    # PyTorch 2.7+ is needed for Blackwell (sm_100). Using the cu128 index url.
     # Ensure the host machine has compatible NVIDIA drivers (e.g., 555+ for B200).
-    TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch>=2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
+    TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch>=2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
 
 # If B200 not detected, fall back to nvcc check
 elif command -v nvcc &> /dev/null; then
