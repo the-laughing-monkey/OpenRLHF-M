@@ -13,7 +13,7 @@ export NCCL_DEBUG=INFO
 export NCCL_SOCKET_IFNAME=eth1
 
 # Export the eth1 IP address.
-export ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
+export ETH0_IP=$(ip addr show eth0 | grep -oP 'inet \K[\d.]+')
 
 # Check for WandB API key.
 if [ -z "${WANDB_API_KEY}" ]; then
@@ -25,8 +25,8 @@ else
 fi
 
 # Get the IP address of eth1 interface
-ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
-echo "Using eth1 IP address: ${ETH1_IP}"
+ETH0_IP=$(ip addr show eth0 | grep -oP 'inet \K[\d.]+')
+echo "Using eth0 IP address: ${ETH0_IP}"
 
  # Start the remote reward model server and test connectivity.
   echo "[HEAD NODE] Starting remote reward model server..."
@@ -43,7 +43,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
          --ref_num_gpus_per_node 32 \
-         --remote_rm_url http://${ETH1_IP}:5000/get_reward \
+         --remote_rm_url http://${ETH0_IP}:5000/get_reward \
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 32 \
          --vllm_num_engines 4 \

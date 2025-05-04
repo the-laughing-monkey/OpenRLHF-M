@@ -26,8 +26,8 @@ else
 fi
 
 # Get the IP address of eth1 interface
-ETH1_IP=$(ip addr show eth1 | grep -oP 'inet \K[\d.]+')
-echo "Using eth1 IP address: ${ETH1_IP}"
+ETH0_IP=$(ip addr show eth0 | grep -oP 'inet \K[\d.]+')
+echo "Using eth0 IP address: ${ETH0_IP}"
 
  # Start the remote reward model server and test connectivity.
   echo "[HEAD NODE] Starting remote reward model server..."
