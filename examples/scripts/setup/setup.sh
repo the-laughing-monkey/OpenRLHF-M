@@ -30,28 +30,53 @@ echo "Core python package installation complete."
 # 2. Torch Installation (Section 5)
 #############################
 
-# Detect CUDA version using nvcc if available.
-if command -v nvcc &> /dev/null; then
-    CUDA_VERSION=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]*\.[0-9]*\).*/\1/p')
-else
-    CUDA_VERSION="none"
-fi
+# Function to get the maximum GPU compute capability detected using nvidia-smi
+get_max_compute_capability() {
+    if command -v nvidia-smi &> /dev/null; then
+        # Get compute capability for all GPUs, sort numerically, get the highest. Handle potential errors.
+        MAX_CC=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | sort -n | tail -n 1)
+        if [ -n "$MAX_CC" ]; then
+            echo "$MAX_CC"
+        else
+            echo "none" # nvidia-smi query failed or returned empty
+        fi
+    else
+        echo "none" # nvidia-smi not found
+    fi
+}
 
-echo "Detected CUDA version: $CUDA_VERSION"
+echo "Detecting GPU Compute Capability..."
+MAX_COMPUTE_CAPABILITY=$(get_max_compute_capability)
+echo "Detected Max Compute Capability: $MAX_COMPUTE_CAPABILITY"
 
-# Select torch installation command based on CUDA version.
-if [[ "$CUDA_VERSION" == 12* ]]; then
-    echo "CUDA 12 detected. Using simple installation for torch."
-    TORCH_INSTALL="pip install torch torchvision torchaudio"
-else
-    if [ -d "l" ]; then
-        echo "CUDA 12 not detected via nvcc, but /usr/local/cuda-12.7 exists. Using complicated installation for torch with CUDA 12.1 wheels."
+# Select torch installation command based on detected hardware
+if [[ "$MAX_COMPUTE_CAPABILITY" == 10.0* ]]; then
+    echo "NVIDIA B200 (Compute Capability 10.0) detected."
+    echo "Installing latest PyTorch compatible with CUDA 12.1+ for B200 support."
+    # PyTorch 2.7+ is needed for Blackwell (sm_100). Using the cu121 index url.
+    # Ensure the host machine has compatible NVIDIA drivers (e.g., 555+ for B200).
+    TORCH_INSTALL="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
+
+# If B200 not detected, fall back to nvcc check
+elif command -v nvcc &> /dev/null; then
+    CUDA_VERSION=$(nvcc --version | grep "release" | sed -n 's/.*release \\([0-9]*\\.[0-9]*\\).*/\\1/p')
+    echo "Detected CUDA version via nvcc: $CUDA_VERSION"
+
+    # Select torch installation command based on CUDA version via nvcc.
+    if [[ "$CUDA_VERSION" == 12* ]]; then
+        echo "CUDA 12 (via nvcc) detected. Using PyTorch wheel for CUDA 12.1."
         TORCH_INSTALL="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
     else
-        echo "CUDA version does not match expected setups. Falling back to default torch installation."
+        echo "CUDA version $CUDA_VERSION (via nvcc) detected, not CUDA 12. Using default PyTorch installation."
         TORCH_INSTALL="pip install torch torchvision torchaudio"
     fi
+
+# Fallback if no B200 detected and nvcc isn't present
+else
+    echo "B200 not detected and nvcc not found. Using default PyTorch installation."
+    TORCH_INSTALL="pip install torch torchvision torchaudio"
 fi
+
 
 echo "Installing torch packages with command: $TORCH_INSTALL"
 # Execute the torch installation command.
