@@ -55,7 +55,7 @@ if [[ "$MAX_COMPUTE_CAPABILITY" == 10.0* ]]; then
     echo "Installing latest PyTorch compatible with CUDA 12.1+ for B200 support."
     # PyTorch 2.7+ is needed for Blackwell (sm_100). Using the cu121 index url.
     # Ensure the host machine has compatible NVIDIA drivers (e.g., 555+ for B200).
-    TORCH_INSTALL="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
+    TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch>=2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
 
 # If B200 not detected, fall back to nvcc check
 elif command -v nvcc &> /dev/null; then
@@ -65,22 +65,25 @@ elif command -v nvcc &> /dev/null; then
     # Select torch installation command based on CUDA version via nvcc.
     if [[ "$CUDA_VERSION" == 12* ]]; then
         echo "CUDA 12 (via nvcc) detected. Using PyTorch wheel for CUDA 12.1."
-        TORCH_INSTALL="pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
+        TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
     else
         echo "CUDA version $CUDA_VERSION (via nvcc) detected, not CUDA 12. Using default PyTorch installation."
-        TORCH_INSTALL="pip install torch torchvision torchaudio"
+        TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch torchvision torchaudio"
     fi
 
 # Fallback if no B200 detected and nvcc isn't present
 else
     echo "B200 not detected and nvcc not found. Using default PyTorch installation."
-    TORCH_INSTALL="pip install torch torchvision torchaudio"
+    TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch torchvision torchaudio"
 fi
 
+# Uninstall existing torch versions first
+echo "Uninstalling existing torch, torchvision, torchaudio..."
+pip uninstall torch torchvision torchaudio -y
 
-echo "Installing torch packages with command: $TORCH_INSTALL"
 # Execute the torch installation command.
-eval $TORCH_INSTALL
+echo "Installing torch packages with command: $TORCH_INSTALL_CMD"
+eval $TORCH_INSTALL_CMD
 
 
 #############################
