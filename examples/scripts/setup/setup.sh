@@ -85,14 +85,22 @@ pip uninstall torch torchvision torchaudio -y
 echo "Installing torch packages with command: $TORCH_INSTALL_CMD"
 eval $TORCH_INSTALL_CMD
 
+#############################
+# 3. Build and Install vLLM from Source (compatible with current PyTorch)
+#############################
+
+#echo "Building vLLM from source against installed PyTorch..."
+# Remove any pre-installed wheels that pin older torch versions
+#pip uninstall -y vllm xformers intel_extension_for_pytorch >/dev/null 2>&1 || true
+# Install vLLM directly from GitHub, forcing a source build so that the
+# C++/CUDA extensions are compiled against the just-installed torch headers.
+#VLLM_COMMIT=${VLLM_COMMIT:-main}
+#pip install --no-cache-dir --no-binary :all: --no-build-isolation --no-deps \
+#    "git+https://github.com/vllm-project/vllm.git@$VLLM_COMMIT"
 
 #############################
-# 3. Install OpenRLHF and its Dependencies
+# 4. Install OpenRLHF and its Dependencies
 #############################
-
-# Install latest compatible vLLM explicitly
-echo "Installing vLLM==0.8.5.post1"
-pip install vllm==0.8.5.post1
 
 # Set repository directory in WORKING_DIR
 REPO_DIR="$WORKING_DIR/OpenRLHF-M"
@@ -118,4 +126,11 @@ echo "Installing flash-attn with no build isolation"
 pip install flash-attn --no-build-isolation
 
 
-echo "Setup complete." 
+echo "Setup complete."
+
+# Verify installed versions
+echo "Installed package versions:"
+python -c "import torch; print(f'torch: {torch.__version__}')"
+python -c "import vllm; print(f'vllm: {vllm.__version__}')"
+python -c "import flash_attn; print(f'flash-attn: {flash_attn.__version__}')"
+python -c "import ray; print(f'ray: {ray.__version__}')"
