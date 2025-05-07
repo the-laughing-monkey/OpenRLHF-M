@@ -62,7 +62,7 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
    ssh -i ~/.ssh/my_runpod_key root@<POD_IP_ADDRESS> -p <SSH_PORT>
 ```
 
-### 4. Set Up Your Python Environment and Install OpenRLHF-M
+### 4. Updates your OS, Set Up Your Python Environment and Install OpenRLHF-M
 
 1. Update the system and install Python tools:
 ```bash
