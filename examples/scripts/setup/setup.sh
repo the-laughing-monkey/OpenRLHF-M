@@ -89,14 +89,14 @@ eval $TORCH_INSTALL_CMD
 # 3. Build and Install vLLM from Source (compatible with current PyTorch)
 #############################
 
-#echo "Building vLLM from source against installed PyTorch..."
-# Remove any pre-installed wheels that pin older torch versions
-#pip uninstall -y vllm xformers intel_extension_for_pytorch >/dev/null 2>&1 || true
-# Install vLLM directly from GitHub, forcing a source build so that the
-# C++/CUDA extensions are compiled against the just-installed torch headers.
-#VLLM_COMMIT=${VLLM_COMMIT:-main}
-#pip install --no-cache-dir --no-binary :all: --no-build-isolation --no-deps \
-#    "git+https://github.com/vllm-project/vllm.git@$VLLM_COMMIT"
+##echo "Building vLLM from source against installed PyTorch..."
+## Remove any pre-installed wheels that pin older torch versions
+##pip uninstall -y vllm xformers intel_extension_for_pytorch >/dev/null 2>&1 || true
+## Install vLLM directly from GitHub, forcing a source build so that the
+## C++/CUDA extensions are compiled against the just-installed torch headers.
+##VLLM_COMMIT=${VLLM_COMMIT:-main}
+##pip install --no-cache-dir --no-binary :all: --no-build-isolation --no-deps \
+##    "git+https://github.com/vllm-project/vllm.git@$VLLM_COMMIT"
 
 #############################
 # 4. Install OpenRLHF and its Dependencies
@@ -120,6 +120,17 @@ pip install .
 # Install ray with default extras to ensure dashboard dependencies
 echo "Installing ray[default]"
 pip install 'ray[default]'
+
+# Conditionally install vLLM nightly for PyTorch 2.7+ compatibility if Blackwell is detected
+if [[ "$MAX_COMPUTE_CAPABILITY" == 10.0* ]]; then
+    echo "NVIDIA B200 (Blackwell) detected. Installing vLLM nightly build."
+    pip install -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
+else
+    echo "Blackwell GPU not detected. Installing OpenRLHF with standard vLLM extra."
+    # This assumes you might want a standard vLLM version if not on Blackwell.
+    # Adjust if vLLM should only be installed for Blackwell.
+    pip install .[vllm]
+fi
 
 # Install flash-attention
 echo "Installing flash-attn with no build isolation"
