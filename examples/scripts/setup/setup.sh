@@ -101,7 +101,8 @@ fi
 echo "Changing directory to repository: $REPO_DIR"
 cd "$REPO_DIR"
 
-pip install .
+# Install OpenRLHF
+pip install -e .
     
 # Install ray with default extras to ensure dashboard dependencies
 echo "Installing ray[default]"
