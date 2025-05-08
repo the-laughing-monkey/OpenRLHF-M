@@ -85,21 +85,9 @@ pip uninstall torch torchvision torchaudio -y
 echo "Installing torch packages with command: $TORCH_INSTALL_CMD"
 eval $TORCH_INSTALL_CMD
 
-#############################
-# 3. Build and Install vLLM from Source (compatible with current PyTorch)
-#############################
-
-##echo "Building vLLM from source against installed PyTorch..."
-## Remove any pre-installed wheels that pin older torch versions
-##pip uninstall -y vllm xformers intel_extension_for_pytorch >/dev/null 2>&1 || true
-## Install vLLM directly from GitHub, forcing a source build so that the
-## C++/CUDA extensions are compiled against the just-installed torch headers.
-##VLLM_COMMIT=${VLLM_COMMIT:-main}
-##pip install --no-cache-dir --no-binary :all: --no-build-isolation --no-deps \
-##    "git+https://github.com/vllm-project/vllm.git@$VLLM_COMMIT"
 
 #############################
-# 4. Install OpenRLHF and its Dependencies
+# 3. Install OpenRLHF and its Dependencies
 #############################
 
 # Set repository directory in WORKING_DIR
@@ -113,37 +101,8 @@ fi
 echo "Changing directory to repository: $REPO_DIR"
 cd "$REPO_DIR"
 
-# Conditional vLLM and OpenRLHF installation
-if [[ "$MAX_COMPUTE_CAPABILITY" == 10.0* ]]; then
-    echo "NVIDIA B200 (Blackwell) detected. PyTorch 2.7.0 should be installed."
+pip install .
     
-    echo "Uninstalling any existing vLLM to ensure a clean build from source..."
-    pip uninstall -y vllm || true # Continue if vllm is not installed
-
-    # Create a temporary directory for cloning and building vLLM
-    VLLM_TMP_DIR=$(mktemp -d -t vllm_build-XXXXXXXXXX)
-    echo "Cloning latest vLLM repository into $VLLM_TMP_DIR..."
-    git clone https://github.com/vllm-project/vllm.git "$VLLM_TMP_DIR"
-    
-    ORIGINAL_PWD=$(pwd) # Should be $REPO_DIR
-    cd "$VLLM_TMP_DIR"
-    echo "Building and installing vLLM from source (this may take 5-10 minutes)..."
-    # Optional: export MAX_JOBS=6 # To limit compilation jobs
-    # Optional: export VLLM_INSTALL_PUNICA_KERNELS=1 # For multi-LoRA capability
-    pip install -e .
-    cd "$ORIGINAL_PWD" # Change back to the original directory (OpenRLHF-M)
-    
-    echo "Cleaning up vLLM source directory: $VLLM_TMP_DIR"
-    rm -rf "$VLLM_TMP_DIR"
-
-    echo "Installing OpenRLHF package (will use the vLLM built from source)"
-    pip install . 
-else
-    echo "Blackwell GPU not detected."
-    echo "Installing OpenRLHF with the latest vLLM extra specified by OpenRLHF."
-    pip install .[vllm_latest] 
-fi
-
 # Install ray with default extras to ensure dashboard dependencies
 echo "Installing ray[default]"
 pip install 'ray[default]'
