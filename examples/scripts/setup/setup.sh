@@ -27,7 +27,7 @@ echo "Core python package installation complete."
 
 
 #############################
-# 2. Torch Installation (Section 5)
+# 2. Torch Installation 
 #############################
 
 # Function to get the maximum GPU compute capability detected using nvidia-smi
@@ -111,7 +111,6 @@ pip install 'ray[default]'
 # Install flash-attention
 echo "Installing flash-attn with no build isolation"
 pip install flash-attn --no-build-isolation
-
 
 echo "Setup complete."
 
