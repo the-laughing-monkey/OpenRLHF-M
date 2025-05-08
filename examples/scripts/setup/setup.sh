@@ -11,6 +11,13 @@
 WORKING_DIR="$(pwd)" # Use current working directory
 
 #############################
+# Set maximum number of open file descriptors
+#############################
+
+echo "Setting maximum number of open file descriptors to unlimited"
+ulimit -n 65536
+
+#############################
 # 1. Install Core Python Packages (Section 4)
 #############################
 

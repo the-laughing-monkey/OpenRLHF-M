@@ -114,6 +114,8 @@ This step is optional but recommended for more integrated experiment monitoring.
 ### 9. Set the file descriptor limit to 65536 to avoid "Too many open files" error
 ```bash
 ulimit -n 65536
+# OR FOR Unlimited do:
+ulimit -s unlimited
 ```
 ---
 
