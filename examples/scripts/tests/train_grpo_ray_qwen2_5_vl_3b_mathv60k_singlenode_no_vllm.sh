@@ -44,7 +44,6 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --actor_num_nodes 1 \
          --actor_num_gpus_per_node 2 \
          --colocate_all_models \
-         --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \
          --save_path ${SAVE_PATH}/${MODEL_NAME} \
          --micro_train_batch_size 1 \
