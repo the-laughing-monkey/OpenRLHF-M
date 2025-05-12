@@ -119,6 +119,9 @@ pip install -e . --no-deps
 echo "Installing OpenRLHF dependencies manually (excluding torch packages)"
 pip install accelerate bitsandbytes datasets deepspeed==0.16.4 einops flask isort jsonlines loralib math-verify==0.5.2 levenshtein optimum peft "pynvml>=12.0.0" qwen_vl_utils tensorboard "transformers@git+https://github.com/huggingface/transformers@2ab7bdc40333b230b642f09e8334fb8e1a92d2a4" transformers_stream_generator wandb loguru
     
+# Instlal vllm
+pip install vllm
+
 # Install ray with default extras to ensure dashboard dependencies
 echo "Installing ray[default]"
 pip install 'ray[default]'
