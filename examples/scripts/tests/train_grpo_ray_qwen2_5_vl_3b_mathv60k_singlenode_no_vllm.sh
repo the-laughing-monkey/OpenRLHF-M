@@ -39,10 +39,10 @@ echo "Using eth1 IP address: ${ETH1_IP}"
      --runtime-env-json="{\"working_dir\": \"${WORKSPACE_DIR}\"}" \
      -- python3 -m openrlhf.cli.train_ppo_ray \
          --ref_num_nodes 1 \
-         --ref_num_gpus_per_node 1 \
+         --ref_num_gpus_per_node 2 \
          --remote_rm_url http://${ETH1_IP}:5000/get_reward \
          --actor_num_nodes 1 \
-         --actor_num_gpus_per_node 1 \
+         --actor_num_gpus_per_node 2 \
          --colocate_all_models \
          --enable_prefix_caching \
          --pretrain ${PRETRAIN_MODEL_PATH} \

@@ -93,7 +93,15 @@ RunPod Pytorch 2.4.0  (by default it pickes 2.2.1)
 
 # Now you can use the examples/scripts/downloaders/download_model.py or examples/scripts/downloaders/download_mathv60k.py to download models and a sample dataset in another terminal to work in parallel.
 
-### 7. Run setup script to install everything else
+### 7. Set the file descriptor limit to 65536 to avoid "Too many open files" error
+```bash
+ulimit -n 65536
+# OR FOR Unlimited do:
+ulimit -s unlimited
+```
+---
+
+### 8. Run setup script to install everything else
 
 On both nodes:
 ```bash
@@ -111,15 +119,7 @@ If you wish to use Weights & Biases (wandb) for experiment tracking, set your AP
 This step is optional but recommended for more integrated experiment monitoring.
 
 
-### 9. Set the file descriptor limit to 65536 to avoid "Too many open files" error
-```bash
-ulimit -n 65536
-# OR FOR Unlimited do:
-ulimit -s unlimited
-```
----
-
-### 10. Prepare Your Cache
+### 9. Prepare Your Cache
 
 Move model caches to your larger `/data` volume to conserve space:
 ```bash
@@ -139,7 +139,7 @@ This is a critical step because:
 
 ---
 
-### 11. Download and Prepare the MathV60K Dataset
+### 10. Download and Prepare the MathV60K Dataset
 
 Before running a training job, you'll need to prepare the dataset:
 
@@ -165,7 +165,7 @@ This script will:
 The script provides detailed progress information and will tell you when the dataset is ready.
 
 
-### 12. Set your NCCL environment variables to use the eth1 interface:
+### 11. Set your NCCL environment variables to use the eth1 interface:
 
 CRITICAL: RunPod only allows internode communication over eth1. So you need to set your NCCL to use the eth1 IP or NCCL will fail to update weights across nodes.
 
@@ -175,7 +175,7 @@ CRITICAL: RunPod only allows internode communication over eth1. So you need to s
 ```
 
 
-### 13. Set your Ray head node to use the eth1 IP
+### 12. Set your Ray head node to use the eth1 IP
 
 CRITICAL: RunPod only allows internode communication over eth1. So you need to set your Ray head node to use the eth1 IP.
 
@@ -203,7 +203,7 @@ ray start \
 ```
 
 
-### 14. Run Your First OpenRLHF-M Training Job with MathV60K
+### 13. Run Your First OpenRLHF-M Training Job with MathV60K
 
 Now you're ready to launch a training job using the MathV60K dataset and the Qwen2.5-VL-3B model:
 
@@ -292,7 +292,7 @@ Disk space issues can cause training to fail when saving checkpoints. Adjust the
 ```
 
 
-### 15. Monitoring NVIDIA GPU Memory
+### 14. Monitoring NVIDIA GPU Memory
 
 To monitor the NVIDIA GPU memory usage while the script loads and runs, open a new terminal session (or use a multiplexer like tmux/screen) and run:
 
