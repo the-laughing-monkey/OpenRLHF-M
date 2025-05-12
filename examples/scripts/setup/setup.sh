@@ -75,7 +75,8 @@ elif command -v nvcc &> /dev/null; then
     # Select torch installation command based on CUDA version via nvcc.
     if [[ "$CUDA_VERSION" == 12* ]]; then
         echo "CUDA 12 (via nvcc) detected. Using PyTorch wheel for CUDA 12.1."
-        TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
+        # Specify a known compatible version (e.g., 2.3.0) for flash-attn from the cu121 index
+        TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu121"
     else
         echo "CUDA version $CUDA_VERSION (via nvcc) detected, not CUDA 12. Using default PyTorch installation."
         TORCH_INSTALL_CMD="pip install --no-cache-dir --force-reinstall torch torchvision torchaudio"
