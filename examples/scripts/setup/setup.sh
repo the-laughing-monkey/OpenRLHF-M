@@ -66,7 +66,10 @@ if [[ "$MAX_COMPUTE_CAPABILITY" == 10.0* ]]; then
 
 # If B200 not detected, fall back to nvcc check
 elif command -v nvcc &> /dev/null; then
-    CUDA_VERSION=$(nvcc --version | grep "release" | sed -n 's/.*release \\([0-9]*\\.[0-9]*\\).*/\\1/p')
+    # Use grep with Perl regex (-P) to extract only (-o) the version number
+    # \K discards the "release " part from the match
+    # Add head -n 1 just in case nvcc --version output multiple matching lines somehow
+    CUDA_VERSION=$(nvcc --version | grep -oP 'release \K[0-9]+\.[0-9]+' | head -n 1)
     echo "Detected CUDA version via nvcc: $CUDA_VERSION"
 
     # Select torch installation command based on CUDA version via nvcc.

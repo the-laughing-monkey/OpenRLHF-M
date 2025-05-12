@@ -106,7 +106,7 @@ ulimit -s unlimited
 On both nodes:
 ```bash
   cd ./OpenRLHF-M
-  bash ./examples/scripts/setup/setup.sh
+  cd
 ```
 
 ### 8. (Optional) Set Your WandB API Key
