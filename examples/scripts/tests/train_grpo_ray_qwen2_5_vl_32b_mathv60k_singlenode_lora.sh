@@ -86,5 +86,5 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --lora_rank 64 \
          --lora_alpha 16 \
          --lora_dropout 0.05 \
-         --target_modules "all-linear" \
+         --target_modules "q_proj" "v_proj" \
          ${WANDB_ARGS}
