@@ -61,7 +61,6 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --num_episodes 2 \
          --prompt_max_len 4096 \
          --max_samples 1000 \
-         --packing_samples \
          --generate_max_len 1024 \
          --advantage_estimator group_norm \
          --use_kl_loss \
