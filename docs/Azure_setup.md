@@ -27,27 +27,38 @@ We will use:
 ## Prerequisites
 
 1. An Azure subscription with **sufficient GPU quota** in your chosen region.  
-   • List current GPU-related quotas/usage (replace `eastus` with your region):  
-   ```bash
-   # Quick view of all VM quotas and current usage
-   az vm list-usage --location eastus --output table | grep -Ei 'gpu|ND|NC|NV'
-   
-   # Fine-grained quota API (preview but more explicit)
-   az quota list --resource-type Standard_NC -l eastus --service-name Microsoft.Compute
-   ```  
-   If the "Current Value" is lower than what you need, open a request in the Azure Portal:  
-   **Subscriptions ➜ Usage + quotas ➜ Request quota increase** (pick the GPU VM family, e.g. *Standard_NC* or *Standard_ND*).
+   • **Checking GPU Quota and Usage:**
+     Use the `az vm list-usage` command to see current usage and limits for VMs in a location:
+     ```bash
+     # Quick view of all VM quotas and current usage (replace eastus with your region)
+     az vm list-usage --location eastus --output table
+     ```
+     *Note: If this command returns no output, it might indicate zero current usage and/or lack of default quota for VM types in that location. This command shows what your subscription is *allowed* to use, not necessarily what is *available*.*
 
-   • **Finding GPU-enabled regions and VM sizes:**
+     To see your quota *limits* for specific GPU VM families (replace `eastus` and the resource type as needed):
+     ```bash
+     # Check NC-series quotas (e.g., Standard_NC48ads_A100_v4)
+     az quota list --resource-type Standard_NC -l eastus --service-name Microsoft.Compute --output table
+
+     # Check ND-series quotas (e.g., Standard_ND96amsr_A100_v4)
+     az quota list --resource-type Standard_ND -l eastus --service-name Microsoft.Compute --output table
+
+     # Check NV-series, MI-series, etc. similarly...
+     ```
+     Look for the `Limit` column in the output. If you need more quota, follow the steps above to request an increase via the Azure portal [1](https://learn.microsoft.com/en-us/azure/azure-resource-manager/troubleshooting/error-resource-quota), [2](https://learn.microsoft.com/en-us/answers/questions/2110033/azure-virtual-machine-family-quota-problem).
+
+   • **Finding GPU-enabled regions and available VM sizes:**
      To list all Azure locations:
      ```bash
-     az account list-locations --query "[].{Name:name, DisplayName:displayName}" -o table
+    z
      ```
-     To see which VM sizes (including GPU) are available in a specific location (replace `eastus`):
+     To see which **VM sizes/types are *available* in a specific location** and have GPUs (replace `eastus`):
+     *Note: `az vm list-sizes` is deprecated, but used here for performance. A more accurate method using `az vm list-skus` is available but can be slow.*
      ```bash
-     az vm list-sizes --location eastus --output table | grep -Ei 'gpu|NC|ND|NV|MI'
+     # List VM sizes with GPU-related names in a specific location
+     az vm list-sizes --location eastus --output table | awk '$3 ~ /gpu|NC|ND|NV|MI/'
      ```
-     Look for VM series like `NC`, `ND`, `NV`, `MI` which typically indicate GPU capabilities, and check the `numberOfGPUs` column.
+     This command uses `awk` to filter the output and show only rows where the third column (the VM size name) contains patterns commonly associated with GPU VMs (`gpu`, `NC`, `ND`, `NV`, or `MI`).
 
 2. **Azure CLI** (`az`) installed **and logged-in**.  
    Install (choose one):  
