@@ -71,7 +71,7 @@ echo "Using eth1 IP address: ${ETH1_IP}"
          --prompt_data ${DATASET_PATH} \
          --input_key message \
          --normalize_reward \
-         --zero_stage 3 \
+         --zero_stage 2 \
          --deepspeed_enable_sleep \
          --flash_attn \
          --lambd 1 \
